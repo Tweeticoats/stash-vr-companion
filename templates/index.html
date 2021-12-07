@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>stash vr companion</title>
+
+</head>
+<body>
+<div>{% for f in filters %}
+{% if f == filter %}
+    <b>{{ f }}</b>
+{% else %}
+<a href="/filter/{{ f }}">{{ f }}</a>
+{% endif %}
+{% endfor %}
+</div>
+<hr/>
+{% if scenes%}
+<div class="grid-container">
+
+{% for scene in scenes %}
+  <div class="grid-item">
+
+<a href="scene/{{ scene['id'] }}">
+    <img src="{{ scene["paths"]["screenshot"] }}" width="150" height="150"/>
+    <p>{{ scene['title'] }}</p>
+
+</a>
+
+
+</div>
+
+{% endfor %}
+</div>
+
+
+{% else %}
+<h1> No Scenes with tags</h1>
+{% endif %}
+<ul>
+
+
+</ul>
+
+</body>
+</html>

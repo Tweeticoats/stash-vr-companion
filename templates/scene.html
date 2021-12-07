@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>stash vr companion</title>
+
+</head>
+<body>
+{% if scene%}
+<h1>{{ scene['title'] }}</h1>
+    <img src="{{ scene["paths"]["screenshot"] }}"/>
+{% else %}
+<h1> Error connecting to stash</h1>
+{% endif %}
+<ul>
+
+
+</ul>
+
+</body>
+</html>
