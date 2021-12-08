@@ -1,4 +1,4 @@
-from flask import Flask,jsonify,render_template,request
+from flask import Flask,jsonify,render_template,request,Response,redirect
 import requests
 import json
 import os
@@ -301,7 +301,7 @@ def findStudioIdWithName(name):
 
 @app.route('/deovr')
 def deovr():
-    scenes = get_scenes_with_tag("export_deovr")
+#    scenes = get_scenes_with_tag("export_deovr")
     data = {}
     index = 1
 
@@ -333,10 +333,13 @@ def deovr():
             r={}
             r["title"] = s["title"]
             r["videoLength"]=int(s["file"]["duration"])
-            r["thumbnailUrl"] =s["paths"]["screenshot"]
+            if 'ApiKey' in headers:
+                screenshot_url = s["paths"]["screenshot"]
+                r["thumbnailUrl"] = request.base_url[:-6] + '/image_proxy?scene_id=' + screenshot_url.split('/')[4] + '&session_id=' + screenshot_url.split('/')[5][11:]
+            else:
+                r["thumbnailUrl"] =s["paths"]["screenshot"]
             r["video_url"]=request.base_url+'/'+s["id"]
             res.append(r)
-
 
         data["scenes"].append({"name":filter_id,"list":res})
     return jsonify(data)
@@ -357,7 +360,11 @@ def show_post(scene_id):
 #            studio_cache[s["studio"]["name"]].append(r)
 #        else:
 #            studio_cache[s["studio"]["name"]] = [r]
-    scene["thumbnailUrl"] = s["paths"]["screenshot"]
+    if 'ApiKey' in headers:
+        screenshot_url = s["paths"]["screenshot"]
+        scene["thumbnailUrl"] = request.base_url[:-6] + '/image_proxy?scene_id=' + screenshot_url.split('/')[4] + '&session_id=' + screenshot_url.split('/')[5][11:]
+    else:
+        scene["thumbnailUrl"] = s["paths"]["screenshot"]
     scene["isFavorite"] = False
     scene["isScripted"] = False
     scene["isWatchlist"] = False
@@ -416,12 +423,27 @@ def filter():
     filter.extend(performers)
     return filter
 
+def rewrite_image_urls(scenes):
+    for s in scenes:
+        screenshot_url=s["paths"]["screenshot"]
+        s["paths"]["screenshot"]='/image_proxy?scene_id='+screenshot_url.split('/')[4]+'&session_id='+screenshot_url.split('/')[5][11:]
+
+@app.route('/image_proxy')
+def image_proxy():
+    scene_id = request.args.get('scene_id')
+    session_id = request.args.get('session_id')
+    url=app.config['GRAPHQL_API'][:-8]+'/scene/'+scene_id+'/screenshot?'+session_id
+    r = requests.get(url,headers=headers)
+    return Response(r.content,content_type=r.headers['Content-Type'])
+
 
 @app.route('/')
 def index():
-    scenes = get_scenes_with_tag("export_deovr")
-    return render_template('index.html',filters=filter(),filter='Recent',scenes=scenes)
+    return redirect("/filter/Recent", code=302)
 
+#    scenes = get_scenes_with_tag("export_deovr")
+#    return render_template('index.html',filters=filter(),filter='Recent',scenes=scenes)
+#    return show_category(filter='Recent')
 @app.route('/filter/<string:filter_id>')
 def show_category(filter_id):
     tags=[]
@@ -442,11 +464,18 @@ def show_category(filter_id):
         scenes_filter={"tags": {"depth": 0, "modifier": "INCLUDES_ALL","value": [findTagIdWithName('export_deovr')]},"performers":{"modifier": "INCLUDES_ALL","value":performer_ids}}
 
     scenes= get_scenes(scenes_filter)
+    if 'ApiKey' in headers:
+        rewrite_image_urls(scenes)
+
     return render_template('index.html',filters=filter(),filter=filter_id,scenes=scenes)
 
 @app.route('/scene/<int:scene_id>')
 def scene(scene_id):
     s = lookupScene(scene_id)
+    if 'ApiKey' in headers:
+        screenshot_url=s["paths"]["screenshot"]
+        s["paths"]["screenshot"]='/image_proxy?scene_id='+screenshot_url.split('/')[4]+'&session_id='+screenshot_url.split('/')[5][11:]
+        print(request.base_url)
     return render_template('scene.html',scene=s)
 
 if __name__ == '__main__':
