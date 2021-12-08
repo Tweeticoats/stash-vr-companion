@@ -18,6 +18,8 @@ headers = {
     "Connection": "keep-alive",
     "DNT": "1"
 }
+if os.getenv('API_KEY'):
+    headers['ApiKey']=os.getenv('API_KEY')
 
 studios=[]
 performers=[]
