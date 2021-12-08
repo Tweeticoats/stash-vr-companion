@@ -1,0 +1,39 @@
+# stash-vr-companion
+This is a companion web application to connect stash to deovr.
+
+Stash is a self hosted web application to manage your porn collection.
+Deovr is a VR video player avalable for most platforms.
+
+This web application creates a set of json files allowing you to stream vr videos to your oculus, vive, google carboard etc.
+
+
+## Scene configuration
+This web application uses tags to configure what is included in the index.
+Scenes must be tagged with export_deovr to be visible.
+Scenes are assumed 2d by default and to explicitly mark a scene as 2d apply the tag FLAT.
+Most VR scenes are 180° with the left and right eye side by side, apply the tags export_deovr, DOME and optionally SBS to mark the video as VR.
+* **export_deovr** - apply this tag to include it in the index
+* **FLAT** - Mark the video as 2d. This is the default if other projection tags are not configured.
+* **DOME** - 3D 180° projection, this is what most VR video's use.
+* **SPHERE** - 3D 360° projection used by some earlier videos
+* **FISHEYE** - Fish Eye lense projection
+* **MKX200** - 3D 200° projection used by SLR
+* **SBS** - Side by Side with the left eye taking up the left half of the video. This is the default for 3d video's.
+* **TB** - Up Down with the left eye taking up the top half of the video.
+
+
+## Running in docker
+Configuration is done by providing environment variables to the docker container.
+The web server is running on port 5000 in the container.
+
+| Parameter                                     | Function |
+|:----------------------------------------------| --- |
+| `-e API_URL=http://192.168.0.22:9999/graphql` | Specify the stash instance to connect to
+| `-e API_KEY=xxxxxxxxx`                        | Specify the api key used to connect to stash if you have password protected your instance
+
+```
+docker stop stash-vr-companion
+docker rm stash-vr-companion
+docker pull ghcr.io/tweeticoats/stash-vr-companion:latest
+docker run -d  --name=stash-vr-companion --restart=unless-stopped -p 5000:5000 -e API_URL=http://192.168.0.22:9999/graphql ghcr.io/tweeticoats/stash-vr-companion:latest
+```
