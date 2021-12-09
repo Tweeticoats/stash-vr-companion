@@ -417,8 +417,43 @@ def show_post(scene_id):
     scene["fullAccess"] = True
     return jsonify(scene)
 
+# Look for studios with the string EXPORT_DEOVR in the description
+def reload_filter_studios():
+    query = """query {
+      allStudios {
+        id
+        name
+        details
+      }
+    }"""
+    result = __callGraphQL(query)
+    for s in result["allStudios"]:
+        if s['details'] is not None and 'EXPORT_DEOVR' in s['details']:
+            if s['name'] not in studios:
+                studios.append(s['name'])
+
+def reload_filter_performer():
+    query = """{
+  allPerformers{
+  id
+  name
+  tags{
+    id
+    name
+  }
+}}"""
+    result = __callGraphQL(query)
+    for p in result["allPerformers"]:
+        for tag in p['tags']:
+            if tag["name"] == 'export_deovr':
+                if p['name'] not in performers:
+                    performers.append(p['name'])
+
+
 def filter():
     filter=['Recent','VR','2D']
+    reload_filter_studios()
+    reload_filter_performer()
     filter.extend(studios)
     filter.extend(performers)
     return filter
@@ -477,6 +512,8 @@ def scene(scene_id):
         s["paths"]["screenshot"]='/image_proxy?scene_id='+screenshot_url.split('/')[4]+'&session_id='+screenshot_url.split('/')[5][11:]
         print(request.base_url)
     return render_template('scene.html',scene=s)
+
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0')
