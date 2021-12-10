@@ -299,10 +299,10 @@ def findStudioIdWithName(name):
     return None
 
 
-@app.route('/deovr')
+@app.route('/deovr',methods=['GET', 'POST'])
 def deovr():
-#    scenes = get_scenes_with_tag("export_deovr")
     data = {}
+    data["authorized"]="1"
     index = 1
 
     data["scenes"] = []
