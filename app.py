@@ -476,7 +476,7 @@ def filter():
     reload_filter_studios()
     reload_filter_performer()
     filter.extend(studios)
- :   filter.extend(performers)
+    filter.extend(performers)
     reload_filter_tag()
     filter.extend(tags_filters.keys())
     return filter
