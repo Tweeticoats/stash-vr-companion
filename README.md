@@ -28,6 +28,7 @@ To pin a studio edit the studio in stash and add the string EXPORT_DEOVR to the 
 
 To Pin a performer edit the performer and add the tag export_deovr to the performer.
 
+To Pin a tag the tag must be a sub tag of export_deovr. Edit export_deovr and add the tag as a child.
 
 ## Running in docker
 Configuration is done by providing environment variables to the docker container.

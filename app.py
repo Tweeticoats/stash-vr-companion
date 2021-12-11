@@ -23,6 +23,8 @@ if os.getenv('API_KEY'):
 
 studios=[]
 performers=[]
+tags_filters={}
+export_deovr_tag=0
 
 
 def __callGraphQL(query, variables=None):
@@ -328,6 +330,8 @@ def deovr():
             scenes_filter = {
                 "tags": {"depth": 0, "modifier": "INCLUDES_ALL", "value": [findTagIdWithName('export_deovr')]},
                 "performers": {"modifier": "INCLUDES_ALL", "value": performer_ids}}
+        elif filter_id in tags_filters.keys():
+            scenes_filter = {"tags": {"depth": 2, "modifier": "INCLUDES_ALL", "value": [export_deovr_tag,tags_filters[filter_id]]}}
         scenes = get_scenes(scenes_filter)
         for s in scenes:
             r={}
@@ -449,13 +453,32 @@ def reload_filter_performer():
                 if p['name'] not in performers:
                     performers.append(p['name'])
 
+def reload_filter_tag():
+    query = """{
+  allTags{
+    id
+    name
+    children{
+     id
+      name
+    }
+  }
+}"""
+    result = __callGraphQL(query)
+    for t in result["allTags"]:
+        if t['name']=="export_deovr":
+            export_deovr_tag=t['id']
+            for tag in t['children']:
+                tags_filters[tag['name']]=tag['id']
 
 def filter():
     filter=['Recent','VR','2D']
     reload_filter_studios()
     reload_filter_performer()
     filter.extend(studios)
-    filter.extend(performers)
+ :   filter.extend(performers)
+    reload_filter_tag()
+    filter.extend(tags_filters.keys())
     return filter
 
 def rewrite_image_urls(scenes):
@@ -496,7 +519,7 @@ def show_category(filter_id):
         scenes_filter={"tags": {"depth": 0, "modifier": "INCLUDES_ALL","value": [findTagIdWithName('export_deovr')]},"studios":{"depth": 3,"modifier": "INCLUDES_ALL","value":studio_ids}}
     elif filter_id in performers:
         performer_ids=[findPerformerIdWithName(filter_id)]
-        scenes_filter={"tags": {"depth": 0, "modifier": "INCLUDES_ALL","value": [findTagIdWithName('export_deovr')]},"performers":{"modifier": "INCLUDES_ALL","value":performer_ids}}
+        scenes_filter={"tags": {"depth": 0, "modifier": "INCLUDES_ALL","value": []},"performers":{"modifier": "INCLUDES_ALL","value":performer_ids}}
 
     scenes= get_scenes(scenes_filter)
     if 'ApiKey' in headers:
