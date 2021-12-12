@@ -547,7 +547,7 @@ def filter():
 
     vr_filter ={}
     vr_filter['name']='VR'
-    vr_filter['filter']={"tags": {"value": [tags_cache['export_deovr']['id'],tags_cache['SBS']['id']], "depth": 0, "modifier": "INCLUDES"}}
+    vr_filter['filter']={"tags": {"value": [tags_cache['export_deovr']['id'],tags_cache['SBS']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
 
     flat_filter={}
     flat_filter['name']='2D'
