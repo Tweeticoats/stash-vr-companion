@@ -25,7 +25,6 @@ studios=[]
 performers=[]
 tags_filters={}
 export_deovr_tag=0
-filters=[]
 tags_cache={}
 
 
@@ -289,8 +288,6 @@ def findPerformerIdWithName(name):
             return tag["id"]
     return None
 
-def filter_with_tag(scene_list,tag):
-    return True
 
 def findStudioIdWithName(name):
     query = """query {
@@ -316,7 +313,8 @@ def deovr():
         scenes = get_scenes(f['filter'])
         if 'post' in f:
             var=f['post']
-            var(scenes)
+            scenes=var(scenes,f)
+
         for s in scenes:
             r = {}
             r["title"] = s["title"]
@@ -499,6 +497,26 @@ def reload_filter_performer():
                     res.append(performer_filter)
     return res
 
+def reload_filter_tag():
+    res=[]
+    for f in tags_cache['export_deovr']['children']:
+        tags_filter={}
+        tags_filter['name']=f['name']
+        tags_filter['type']='TAG'
+        tags_filter['id']=f['id']
+        tags_filter['filter']= {"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
+        tags_filter['post']=tag_cleanup
+        res.append(tags_filter)
+    return res
+
+def tag_cleanup(scenes,filter):
+    res=[]
+    for s in scenes:
+        print([x['id']  for x in s['tags']])
+        if filter['id'] in [x['id']  for x in s['tags']]:
+            res.append(s)
+    return res
+
 def reload_filter_cache():
     query = """{
   allTags{
@@ -576,27 +594,17 @@ def index():
 @app.route('/filter/<string:filter_id>')
 def show_category(filter_id):
     tags=[]
-    scenes_filter={}
-    if filter_id == 'Recent':
-        scenes_filter={"tags": {"value": tags, "depth": 0, "modifier": "INCLUDES_ALL"}}
-    elif filter_id == '2D':
-        tags=[findTagIdWithName('export_deovr'),findTagIdWithName('FLAT')]
-        scenes_filter={"tags": {"value": tags, "depth": 0, "modifier": "INCLUDES_ALL"}}
-    elif filter_id == 'VR':
-        tags=[findTagIdWithName('export_deovr'),findTagIdWithName('SBS')]
-        scenes_filter={"tags": {"value": tags, "depth": 0, "modifier": "INCLUDES_ALL"}}
-    elif filter_id in studios:
-        studio_ids=[findStudioIdWithName(filter_id)]
-        scenes_filter={"tags": {"depth": 0, "modifier": "INCLUDES_ALL","value": [findTagIdWithName('export_deovr')]},"studios":{"depth": 3,"modifier": "INCLUDES_ALL","value":studio_ids}}
-    elif filter_id in performers:
-        performer_ids=[findPerformerIdWithName(filter_id)]
-        scenes_filter={"tags": {"depth": 0, "modifier": "INCLUDES_ALL","value": []},"performers":{"modifier": "INCLUDES_ALL","value":performer_ids}}
-
-    scenes= get_scenes(scenes_filter)
-    if 'ApiKey' in headers:
-        rewrite_image_urls(scenes)
-
-    return render_template('index.html',filters=filter(),filter=filter_id,scenes=scenes)
+    filters=filter()
+    for f in filters:
+        if filter_id == f['name']:
+            scenes = get_scenes(f['filter'])
+            if 'post' in f:
+                var=f['post']
+                scenes=var(scenes,f)
+            if 'ApiKey' in headers:
+                rewrite_image_urls(scenes)
+            return render_template('index.html',filters=filters,filter=filter_id,scenes=scenes)
+    return "Error, filter does not exist"
 
 @app.route('/scene/<int:scene_id>')
 def scene(scene_id):

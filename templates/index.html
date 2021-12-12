@@ -8,10 +8,10 @@
 </head>
 <body>
 <div>{% for f in filters %}
-{% if f == filter %}
-    <b>{{ f }}</b>
+{% if f['name'] == filter %}
+    <b>{{ f['name'] }}</b>
 {% else %}
-<a href="/filter/{{ f }}">{{ f }}</a>
+<a href="/filter/{{ f['name'] }}">{{ f['name'] }}</a>
 {% endif %}
 {% endfor %}
 </div>
