@@ -25,6 +25,8 @@ studios=[]
 performers=[]
 tags_filters={}
 export_deovr_tag=0
+filters=[]
+tags_cache={}
 
 
 def __callGraphQL(query, variables=None):
@@ -287,6 +289,9 @@ def findPerformerIdWithName(name):
             return tag["id"]
     return None
 
+def filter_with_tag(scene_list,tag):
+    return True
+
 def findStudioIdWithName(name):
     query = """query {
   allStudios {
@@ -303,6 +308,32 @@ def findStudioIdWithName(name):
 
 @app.route('/deovr',methods=['GET', 'POST'])
 def deovr():
+    data = {}
+    data["authorized"]="1"
+    data["scenes"] = []
+    for f in filter():
+        res=[]
+        scenes = get_scenes(f['filter'])
+        if 'post' in f:
+            var=f['post']
+            var(scenes)
+        for s in scenes:
+            r = {}
+            r["title"] = s["title"]
+            r["videoLength"] = int(s["file"]["duration"])
+            if 'ApiKey' in headers:
+                screenshot_url = s["paths"]["screenshot"]
+                r["thumbnailUrl"] = request.base_url[:-6] + '/image_proxy?scene_id=' + screenshot_url.split('/')[
+                    4] + '&session_id=' + screenshot_url.split('/')[5][11:]
+            else:
+                r["thumbnailUrl"] = s["paths"]["screenshot"]
+            r["video_url"] = request.base_url + '/' + s["id"]
+            res.append(r)
+        data["scenes"].append({"name": f['name'], "list": res})
+    return jsonify(data)
+
+
+def deovr_old():
     data = {}
     data["authorized"]="1"
     index = 1
@@ -431,10 +462,18 @@ def reload_filter_studios():
       }
     }"""
     result = __callGraphQL(query)
+    res=[]
     for s in result["allStudios"]:
         if s['details'] is not None and 'EXPORT_DEOVR' in s['details']:
             if s['name'] not in studios:
-                studios.append(s['name'])
+                studio_fiter={}
+                studio_fiter['name']=s['name']
+                studio_fiter['type']='STUDIO'
+                studio_fiter['filter']={
+                    "tags": {"depth": 0, "modifier": "INCLUDES_ALL", "value": [tags_cache['export_deovr']['id']]},
+                    "studios": {"depth": 3, "modifier": "INCLUDES_ALL", "value": [s['id']]}}
+                res.append(studio_fiter)
+    return res
 
 def reload_filter_performer():
     query = """{
@@ -447,13 +486,20 @@ def reload_filter_performer():
   }
 }}"""
     result = __callGraphQL(query)
+    res=[]
     for p in result["allPerformers"]:
         for tag in p['tags']:
             if tag["name"] == 'export_deovr':
                 if p['name'] not in performers:
-                    performers.append(p['name'])
+                    performer_filter = {}
+                    performer_filter['name'] = p['name']
+                    performer_filter['type'] = 'PERFORMER'
+                    performer_filter['filter'] = {"tags": {"depth": 0, "modifier": "INCLUDES_ALL", "value": [tags_cache['export_deovr']['id']]},
+                                     "performers": {"modifier": "INCLUDES_ALL", "value": [p["id"]]}}
+                    res.append(performer_filter)
+    return res
 
-def reload_filter_tag():
+def reload_filter_cache():
     query = """{
   allTags{
     id
@@ -465,20 +511,45 @@ def reload_filter_tag():
   }
 }"""
     result = __callGraphQL(query)
+    if 'allTags' in result:
+        tags_cache.clear()
     for t in result["allTags"]:
-        if t['name']=="export_deovr":
-            export_deovr_tag=t['id']
-            for tag in t['children']:
-                tags_filters[tag['name']]=tag['id']
+        tags_cache[t['name']]=t
+
+
+def load_config():
+    export_deovr_tag=findTagIdWithName('export_deovr')
+
 
 def filter():
-    filter=['Recent','VR','2D']
-    reload_filter_studios()
-    reload_filter_performer()
-    filter.extend(studios)
-    filter.extend(performers)
-    reload_filter_tag()
-    filter.extend(tags_filters.keys())
+    reload_filter_cache()
+
+    recent_filter={}
+    recent_filter['name']='Recent'
+    recent_filter['filter'] = {"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
+
+    vr_filter ={}
+    vr_filter['name']='VR'
+    vr_filter['filter']={"tags": {"value": [tags_cache['export_deovr']['id'],tags_cache['FLAT']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
+
+    flat_filter={}
+    flat_filter['name']='2D'
+    flat_filter['filter'] = {"tags": {"value": [tags_cache['export_deovr']['id'],tags_cache['FLAT']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
+
+    filter=[recent_filter,vr_filter,flat_filter]
+
+    for f in reload_filter_studios():
+        filter.append(f)
+    for f in reload_filter_performer():
+        filter.append(f)
+    for f in reload_filter_tag():
+        filter.append(f)
+
+#    reload_filter_performer()
+#    filter.extend(studios)
+#    filter.extend(performers)
+#    reload_filter_tag()
+#    filter.extend(tags_filters.keys())
     return filter
 
 def rewrite_image_urls(scenes):
