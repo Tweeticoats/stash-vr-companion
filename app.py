@@ -512,7 +512,6 @@ def reload_filter_tag():
 def tag_cleanup(scenes,filter):
     res=[]
     for s in scenes:
-        print([x['id']  for x in s['tags']])
         if filter['id'] in [x['id']  for x in s['tags']]:
             res.append(s)
     return res
@@ -548,7 +547,7 @@ def filter():
 
     vr_filter ={}
     vr_filter['name']='VR'
-    vr_filter['filter']={"tags": {"value": [tags_cache['export_deovr']['id'],tags_cache['FLAT']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
+    vr_filter['filter']={"tags": {"value": [tags_cache['export_deovr']['id'],tags_cache['SBS']['id'],tags_cache['DOME']['id'],tags_cache['SPHERE']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
 
     flat_filter={}
     flat_filter['name']='2D'
@@ -612,7 +611,6 @@ def scene(scene_id):
     if 'ApiKey' in headers:
         screenshot_url=s["paths"]["screenshot"]
         s["paths"]["screenshot"]='/image_proxy?scene_id='+screenshot_url.split('/')[4]+'&session_id='+screenshot_url.split('/')[5][11:]
-        print(request.base_url)
     return render_template('scene.html',scene=s)
 
 
