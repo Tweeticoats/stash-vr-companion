@@ -156,7 +156,10 @@ tags{
 
     variables = {"scene_filter": scene_filter}
     result = __callGraphQL(query, variables)
-    return result["findScenes"]["scenes"]
+    res= result["findScenes"]["scenes"]
+    for s in res:
+        scene_type(s)
+    return res
 
 
 def lookupScene(id):
@@ -258,7 +261,10 @@ tags{
 }"""
     variables = {"scene_id": id}
     result = __callGraphQL(query, variables)
-    return result["findScene"]
+    res= result["findScene"]
+    scene_type(res)
+
+    return res
 
 def findTagIdWithName(name):
     query = """query {
@@ -410,33 +416,12 @@ def show_post(scene_id):
     vs["url"] = s["paths"]["stream"]
     scene["encodings"] = [{"name": s["file"]["video_codec"], "videoSources": [vs]}]
 
-    if "180_180x180_3dh_LR" in s["path"]:
-        scene["is3d"] = True
-        scene["screenType"] = "dome"
-        scene["stereoMode"] = "sbs"
-    else:
-        scene["screenType"] = "flat"
-        scene["is3d"] = False
-    if 'SBS' in [x["name"] for x in s["tags"]]:
-        scene["stereoMode"] = "sbs"
-    elif 'TB' in [x["name"] for x in s["tags"]]:
-        scene["stereoMode"] = "tb"
-
-    if 'FLAT' in [x["name"] for x in s["tags"]]:
-        scene["screenType"] = "flat"
-        scene["is3d"] = False
-    elif 'DOME' in [x["name"] for x in s["tags"]]:
-        scene["is3d"] = True
-        scene["screenType"] = "dome"
-    elif 'SPHERE' in [x["name"] for x in s["tags"]]:
-        scene["is3d"] = True
-        scene["screenType"] = "sphere"
-    elif 'FISHEYE' in [x["name"] for x in s["tags"]]:
-        scene["is3d"] = True
-        scene["screenType"] = "fisheye"
-    elif 'MKX200' in [x["name"] for x in s["tags"]]:
-        scene["is3d"] = True
-        scene["screenType"] = "mkx200"
+    if "is3d" in s:
+        scene["is3d"] = s["is3d"]
+    if "screenType" in s:
+        scene["screenType"] = s["screenType"]
+    if "stereoMode" in s:
+        scene["stereoMode"] = s["stereoMode"]
 
     scene["timeStamps"] = None
 
@@ -516,6 +501,44 @@ def tag_cleanup(scenes,filter):
             res.append(s)
     return res
 
+def tag_cleanup_3d(scenes,filter):
+    res=[]
+    for s in scenes:
+        if s["is3d"]:
+            res.append(s)
+    return res
+
+
+def scene_type(scene):
+    if "180_180x180_3dh_LR" in scene["path"]:
+        scene["is3d"] = True
+        scene["screenType"] = "dome"
+        scene["stereoMode"] = "sbs"
+    else:
+        scene["screenType"] = "flat"
+        scene["is3d"] = False
+    if 'SBS' in [x["name"] for x in scene["tags"]]:
+        scene["stereoMode"] = "sbs"
+    elif 'TB' in [x["name"] for x in scene["tags"]]:
+        scene["stereoMode"] = "tb"
+
+    if 'FLAT' in [x["name"] for x in scene["tags"]]:
+        scene["screenType"] = "flat"
+        scene["is3d"] = False
+    elif 'DOME' in [x["name"] for x in scene["tags"]]:
+        scene["is3d"] = True
+        scene["screenType"] = "dome"
+    elif 'SPHERE' in [x["name"] for x in scene["tags"]]:
+        scene["is3d"] = True
+        scene["screenType"] = "sphere"
+    elif 'FISHEYE' in [x["name"] for x in scene["tags"]]:
+        scene["is3d"] = True
+        scene["screenType"] = "fisheye"
+    elif 'MKX200' in [x["name"] for x in scene["tags"]]:
+        scene["is3d"] = True
+        scene["screenType"] = "mkx200"
+
+
 def reload_filter_cache():
     query = """{
   allTags{
@@ -547,7 +570,8 @@ def filter():
 
     vr_filter ={}
     vr_filter['name']='VR'
-    vr_filter['filter']={"tags": {"value": [tags_cache['export_deovr']['id'],tags_cache['SBS']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
+    vr_filter['filter']={"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
+    vr_filter['post']=tag_cleanup_3d
 
     flat_filter={}
     flat_filter['name']='2D'

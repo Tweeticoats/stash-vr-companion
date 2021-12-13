@@ -10,13 +10,23 @@
 {% if scene%}
 <h1>{{ scene['title'] }}</h1>
     <img src="{{ scene["paths"]["screenshot"] }}"/>
+    <br/>
+    {% if scene["is3d"] %}
+        Scene Type: <b>VR</b>
+{% else %}
+        Scene Type: <b>2D</b>
+{% endif %}
+    <b>{{ scene['screenType'] }}</b>
+    <br/>
+    Performers:
+    {%  for p in scene['performers'] %}
+        <b>{{ p['name'] }}</b>
+    {% endfor %}
+    <br/>
+    Description:<p>{{ scene['details'] }}</p>
 {% else %}
 <h1> Error connecting to stash</h1>
 {% endif %}
-<ul>
-
-
-</ul>
 
 </body>
 </html>
