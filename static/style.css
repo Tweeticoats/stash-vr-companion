@@ -12,3 +12,8 @@
   font-family: sans-serif;
   font-size: 10px;
 }
+
+container .performer {
+    max-height: calc(100vh - 6rem);
+    max-width: 100%;
+}

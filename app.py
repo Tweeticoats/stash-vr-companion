@@ -486,6 +486,7 @@ def reload_filter_studios():
                 studio_fiter={}
                 studio_fiter['name']=s['name']
                 studio_fiter['type']='STUDIO'
+                studio_fiter['studio_id']=s['id']
                 studio_fiter['filter']={
                     "tags": {"depth": 0, "modifier": "INCLUDES_ALL", "value": [tags_cache['export_deovr']['id']]},
                     "studios": {"depth": 3, "modifier": "INCLUDES_ALL", "value": [s['id']]}}
@@ -511,6 +512,7 @@ def reload_filter_performer():
                     performer_filter = {}
                     performer_filter['name'] = p['name']
                     performer_filter['type'] = 'PERFORMER'
+                    performer_filter['performer_id']=p['id']
                     performer_filter['filter'] = {"tags": {"depth": 0, "modifier": "INCLUDES_ALL", "value": [tags_cache['export_deovr']['id']]},
                                      "performers": {"modifier": "INCLUDES_ALL", "value": [p["id"]]}}
                     res.append(performer_filter)
@@ -601,15 +603,18 @@ def filter():
     recent_filter={}
     recent_filter['name']='Recent'
     recent_filter['filter'] = {"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
+    recent_filter['type']='BUILTIN'
 
     vr_filter ={}
     vr_filter['name']='VR'
     vr_filter['filter']={"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
     vr_filter['post']=tag_cleanup_3d
+    vr_filter['type'] = 'BUILTIN'
 
     flat_filter={}
     flat_filter['name']='2D'
     flat_filter['filter'] = {"tags": {"value": [tags_cache['export_deovr']['id'],tags_cache['FLAT']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
+    flat_filter['type'] = 'BUILTIN'
 
     filter=[recent_filter,vr_filter,flat_filter]
 
@@ -660,7 +665,7 @@ def show_category(filter_id):
                 scenes=var(scenes,f)
             if 'ApiKey' in headers:
                 rewrite_image_urls(scenes)
-            return render_template('index.html',filters=filters,filter=filter_id,scenes=scenes)
+            return render_template('index.html',filters=filters,filter=f,scenes=scenes)
     return "Error, filter does not exist"
 
 @app.route('/scene/<int:scene_id>')
@@ -669,7 +674,7 @@ def scene(scene_id):
     if 'ApiKey' in headers:
         screenshot_url=s["paths"]["screenshot"]
         s["paths"]["screenshot"]='/image_proxy?scene_id='+screenshot_url.split('/')[4]+'&session_id='+screenshot_url.split('/')[5][11:]
-    return render_template('scene.html',scene=s)
+    return render_template('scene.html',scene=s,filters=filter())
 
 @app.route('/performer/<int:performer_id>')
 def performer(performer_id):
@@ -678,7 +683,7 @@ def performer(performer_id):
         p['isPinned']=True
     else:
         p['isPinned' ] = False
-    return render_template('performer.html',performer=p)
+    return render_template('performer.html',performer=p,filters=filter())
 
 
 

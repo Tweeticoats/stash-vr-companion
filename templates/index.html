@@ -7,8 +7,10 @@
 
 </head>
 <body>
-<div>{% for f in filters %}
-{% if f['name'] == filter %}
+<div>
+{% for f in filters %}
+{% if f == filter %}
+
     <b>{{ f['name'] }}</b>
 {% else %}
 <a href="/filter/{{ f['name'] }}">{{ f['name'] }}</a>
@@ -16,6 +18,18 @@
 {% endfor %}
 </div>
 <hr/>
+
+{% if filter['type']=='PERFORMER' %}
+    <a href="/performer/{{ filter['performer_id'] }}"><h1>{{ filter['name'] }}</h1></a>
+{%  elif filter['type'] =='STUDIO' %}
+    <a href="/studio/{{ filter['studio_id'] }}"><h1>{{ filter['name'] }}</h1></a>
+{%  elif filter['type'] =='TAG' %}
+    <b><a href="/tag/{{ filter['id'] }}"><h1>{{ filter['name'] }}</h1></a></b>
+{%  else %}
+    <h1>{{ filter['name'] }}</h1>
+{%  endif %}
+
+
 {% if scenes%}
 <div class="grid-container">
 
