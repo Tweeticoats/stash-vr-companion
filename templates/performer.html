@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>stash vr companion</title>
+
+</head>
+<body>
+{% if performer%}
+<h1>{{ performer['name'] }}</h1>
+    <img src="{{ performer["image_path"] }}"/>
+    <br/>
+    {% if performer['isPinned'] %}
+        Pinned
+        {% else %}
+        Not Pinned
+        {% endif %}
+
+    {% else %}
+    performer not found
+
+{% endif%}
+
+
+</body>
+</html>

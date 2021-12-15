@@ -295,6 +295,40 @@ def findPerformerIdWithName(name):
     return None
 
 
+def findPerformerWithID(id):
+    query = """query findPerformer($performer_id: ID!){
+  findPerformer(id: $performer_id){
+    id
+    name
+    gender
+    url
+    twitter
+    instagram
+    birthdate
+    ethnicity
+    country
+    eye_color
+    country
+    height
+    measurements
+    fake_tits
+    career_length
+    tattoos
+    piercings
+    aliases
+    image_path
+    tags{
+      id
+      name
+    }
+  }
+}"""
+    variables = {"performer_id": id}
+    result = __callGraphQL(query, variables)
+    return result['findPerformer']
+
+
+
 def findStudioIdWithName(name):
     query = """query {
   allStudios {
@@ -636,6 +670,15 @@ def scene(scene_id):
         screenshot_url=s["paths"]["screenshot"]
         s["paths"]["screenshot"]='/image_proxy?scene_id='+screenshot_url.split('/')[4]+'&session_id='+screenshot_url.split('/')[5][11:]
     return render_template('scene.html',scene=s)
+
+@app.route('/performer/<int:performer_id>')
+def performer(performer_id):
+    p=findPerformerWithID(performer_id)
+    if 'export_deovr' in [x["name"] for x in p["tags"]]:
+        p['isPinned']=True
+    else:
+        p['isPinned' ] = False
+    return render_template('performer.html',performer=p)
 
 
 
