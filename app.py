@@ -593,6 +593,44 @@ def reload_filter_cache():
         tags_cache[t['name']]=t
 
 
+    def performer_update(self,performer):
+        query="""
+mutation performerUpdate($input: PerformerUpdateInput!) {
+  performerUpdate(input: $input) {
+    id
+    checksum
+    name
+    url
+    gender
+    twitter
+    instagram
+    birthdate
+    ethnicity
+    country
+    eye_color
+    height
+    measurements
+    fake_tits
+    career_length
+    tattoos
+    piercings
+    aliases
+    favorite
+    image_path
+    scene_count
+    stash_ids {
+      endpoint
+      stash_id
+    }
+  }
+}
+"""
+        variables = {'input': performer}
+        return self.__callGraphQL(query, variables)
+
+
+
+
 def load_config():
     export_deovr_tag=findTagIdWithName('export_deovr')
 
@@ -616,7 +654,13 @@ def filter():
     flat_filter['filter'] = {"tags": {"value": [tags_cache['export_deovr']['id'],tags_cache['FLAT']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
     flat_filter['type'] = 'BUILTIN'
 
-    filter=[recent_filter,vr_filter,flat_filter]
+    star_filter={}
+    star_filter['name']='5 Star'
+    star_filter['filter'] = {"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"},"rating": {"modifier": "EQUALS","value": 5}}
+    star_filter['type'] = 'BUILTIN'
+
+
+    filter=[recent_filter,vr_filter,flat_filter,star_filter]
 
     for f in reload_filter_studios():
         filter.append(f)
