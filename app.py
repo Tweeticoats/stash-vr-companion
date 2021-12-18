@@ -348,9 +348,15 @@ def deovr():
     data = {}
     data["authorized"]="1"
     data["scenes"] = []
+
+    all_scenes=None
     for f in filter():
         res=[]
-        scenes = get_scenes(f['filter'])
+#        scenes = get_scenes(f['filter'])
+        if all_scenes is None:
+            all_scenes = get_scenes(f['filter'])
+
+        scenes = all_scenes
         if 'post' in f:
             var=f['post']
             scenes=var(scenes,f)
@@ -487,9 +493,11 @@ def reload_filter_studios():
                 studio_fiter['name']=s['name']
                 studio_fiter['type']='STUDIO'
                 studio_fiter['studio_id']=s['id']
-                studio_fiter['filter']={
-                    "tags": {"depth": 0, "modifier": "INCLUDES_ALL", "value": [tags_cache['export_deovr']['id']]},
-                    "studios": {"depth": 3, "modifier": "INCLUDES_ALL", "value": [s['id']]}}
+#                studio_fiter['filter']={
+#                    "tags": {"depth": 0, "modifier": "INCLUDES_ALL", "value": [tags_cache['export_deovr']['id']]},
+#                    "studios": {"depth": 3, "modifier": "INCLUDES_ALL", "value": [s['id']]}}
+                studio_fiter['filter'] = {"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
+                studio_fiter['post']=tag_cleanup_studio
                 res.append(studio_fiter)
     return res
 
@@ -513,8 +521,11 @@ def reload_filter_performer():
                     performer_filter['name'] = p['name']
                     performer_filter['type'] = 'PERFORMER'
                     performer_filter['performer_id']=p['id']
-                    performer_filter['filter'] = {"tags": {"depth": 0, "modifier": "INCLUDES_ALL", "value": [tags_cache['export_deovr']['id']]},
-                                     "performers": {"modifier": "INCLUDES_ALL", "value": [p["id"]]}}
+#                    performer_filter['filter'] = {"tags": {"depth": 0, "modifier": "INCLUDES_ALL", "value": [tags_cache['export_deovr']['id']]},
+#                                     "performers": {"modifier": "INCLUDES_ALL", "value": [p["id"]]}}
+#                    tag_cleanup_performer
+                    performer_filter['filter'] = {"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
+                    performer_filter['post'] = tag_cleanup_performer
                     res.append(performer_filter)
     return res
 
@@ -543,6 +554,37 @@ def tag_cleanup_3d(scenes,filter):
         if s["is3d"]:
             res.append(s)
     return res
+
+def tag_cleanup_2d(scenes,filter):
+    res=[]
+    for s in scenes:
+        if not s["is3d"]:
+            res.append(s)
+    return res
+
+
+def tag_cleanup_star(scenes,filter):
+    res=[]
+    for s in scenes:
+        if s["rating"]==5:
+            res.append(s)
+    return res
+
+def tag_cleanup_studio(scenes,filter):
+    res=[]
+    for s in scenes:
+        if s["studio"] is not None and 'id' in s['studio']:
+            if filter['studio_id'] == s['studio']['id']:
+                res.append(s)
+    return res
+
+def tag_cleanup_performer(scenes,filter):
+    res=[]
+    for s in scenes:
+        if filter['performer_id'] in [x['id'] for x in s['performers']]:
+            res.append(s)
+    return res
+
 
 
 def scene_type(scene):
@@ -651,12 +693,16 @@ def filter():
 
     flat_filter={}
     flat_filter['name']='2D'
-    flat_filter['filter'] = {"tags": {"value": [tags_cache['export_deovr']['id'],tags_cache['FLAT']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
+#    flat_filter['filter'] = {"tags": {"value": [tags_cache['export_deovr']['id'],tags_cache['FLAT']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
+    flat_filter['filter']={"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
+    flat_filter['post']=tag_cleanup_2d
     flat_filter['type'] = 'BUILTIN'
 
     star_filter={}
     star_filter['name']='5 Star'
-    star_filter['filter'] = {"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"},"rating": {"modifier": "EQUALS","value": 5}}
+#    star_filter['filter'] = {"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"},"rating": {"modifier": "EQUALS","value": 5}}
+    star_filter['filter']={"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
+    star_filter['post']=tag_cleanup_star
     star_filter['type'] = 'BUILTIN'
 
 
