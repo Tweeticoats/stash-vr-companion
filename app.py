@@ -377,52 +377,6 @@ def deovr():
     return jsonify(data)
 
 
-def deovr_old():
-    data = {}
-    data["authorized"]="1"
-    index = 1
-
-    data["scenes"] = []
-    for filter_id in filter():
-        res=[]
-        scenes_filter = {}
-        if filter_id == 'Recent':
-            tags = [findTagIdWithName('export_deovr')]
-            scenes_filter = {"tags": {"value": tags, "depth": 0, "modifier": "INCLUDES_ALL"}}
-        elif filter_id == '2D':
-            tags = [findTagIdWithName('export_deovr'), findTagIdWithName('FLAT')]
-            scenes_filter = {"tags": {"value": tags, "depth": 0, "modifier": "INCLUDES_ALL"}}
-        elif filter_id == 'VR':
-            tags = [findTagIdWithName('export_deovr'), findTagIdWithName('SBS')]
-            scenes_filter = {"tags": {"value": tags, "depth": 0, "modifier": "INCLUDES_ALL"}}
-        elif filter_id in studios:
-            studio_ids = [findStudioIdWithName(filter_id)]
-            scenes_filter = {
-                "tags": {"depth": 0, "modifier": "INCLUDES_ALL", "value": [findTagIdWithName('export_deovr')]},
-                "studios": {"depth": 3, "modifier": "INCLUDES_ALL", "value": studio_ids}}
-        elif filter_id in performers:
-            performer_ids = [findPerformerIdWithName(filter_id)]
-            scenes_filter = {
-                "tags": {"depth": 0, "modifier": "INCLUDES_ALL", "value": [findTagIdWithName('export_deovr')]},
-                "performers": {"modifier": "INCLUDES_ALL", "value": performer_ids}}
-        elif filter_id in tags_filters.keys():
-            scenes_filter = {"tags": {"depth": 2, "modifier": "INCLUDES_ALL", "value": [export_deovr_tag,tags_filters[filter_id]]}}
-        scenes = get_scenes(scenes_filter)
-        for s in scenes:
-            r={}
-            r["title"] = s["title"]
-            r["videoLength"]=int(s["file"]["duration"])
-            if 'ApiKey' in headers:
-                screenshot_url = s["paths"]["screenshot"]
-                r["thumbnailUrl"] = request.base_url[:-6] + '/image_proxy?scene_id=' + screenshot_url.split('/')[4] + '&session_id=' + screenshot_url.split('/')[5][11:]
-            else:
-                r["thumbnailUrl"] =s["paths"]["screenshot"]
-            r["video_url"]=request.base_url+'/'+s["id"]
-            res.append(r)
-
-        data["scenes"].append({"name":filter_id,"list":res})
-    return jsonify(data)
-
 
 @app.route('/deovr/<int:scene_id>')
 def show_post(scene_id):
