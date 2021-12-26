@@ -24,7 +24,6 @@ if os.getenv('API_KEY'):
 studios=[]
 performers=[]
 tags_filters={}
-export_deovr_tag=0
 tags_cache={}
 
 
@@ -159,6 +158,8 @@ tags{
     res= result["findScenes"]["scenes"]
     for s in res:
         scene_type(s)
+        if 'ApiKey' in headers:
+            rewrite_image_url(s)
     return res
 
 
@@ -263,6 +264,8 @@ tags{
     result = __callGraphQL(query, variables)
     res= result["findScene"]
     scene_type(res)
+    if 'ApiKey' in headers:
+        rewrite_image_url(res)
 
     return res
 
@@ -387,17 +390,7 @@ def show_post(scene_id):
     scene["title"] = s["title"]
     scene["authorized"] = 1
     scene["description"] = s["details"]
-#    if "studio" in s and s["studio"] is not None:
-#        scene["paysite"] = {"id": 1, "name": s["studio"]["name"], "is3rdParty": True}
-#        if s["studio"]["name"] in studio_cache:
-#            studio_cache[s["studio"]["name"]].append(r)
-#        else:
-#            studio_cache[s["studio"]["name"]] = [r]
-    if 'ApiKey' in headers:
-        screenshot_url = s["paths"]["screenshot"]
-        scene["thumbnailUrl"] = request.base_url[:-6] + '/image_proxy?scene_id=' + screenshot_url.split('/')[4] + '&session_id=' + screenshot_url.split('/')[5][11:]
-    else:
-        scene["thumbnailUrl"] = s["paths"]["screenshot"]
+    scene["thumbnailUrl"] = s["paths"]["screenshot"]
     scene["isFavorite"] = False
     scene["isScripted"] = False
     scene["isWatchlist"] = False
@@ -625,12 +618,6 @@ mutation performerUpdate($input: PerformerUpdateInput!) {
         return self.__callGraphQL(query, variables)
 
 
-
-
-def load_config():
-    export_deovr_tag=findTagIdWithName('export_deovr')
-
-
 def filter():
     reload_filter_cache()
 
@@ -676,10 +663,9 @@ def filter():
 #    filter.extend(tags_filters.keys())
     return filter
 
-def rewrite_image_urls(scenes):
-    for s in scenes:
-        screenshot_url=s["paths"]["screenshot"]
-        s["paths"]["screenshot"]='/image_proxy?scene_id='+screenshot_url.split('/')[4]+'&session_id='+screenshot_url.split('/')[5][11:]
+def rewrite_image_url(scene):
+    screenshot_url=scene["paths"]["screenshot"]
+    scene["paths"]["screenshot"]='/image_proxy?scene_id='+screenshot_url.split('/')[4]+'&session_id='+screenshot_url.split('/')[5][11:]
 
 @app.route('/image_proxy')
 def image_proxy():
@@ -707,8 +693,6 @@ def show_category(filter_id):
             if 'post' in f:
                 var=f['post']
                 scenes=var(scenes,f)
-            if 'ApiKey' in headers:
-                rewrite_image_urls(scenes)
             return render_template('index.html',filters=filters,filter=f,scenes=scenes)
     return "Error, filter does not exist"
 
