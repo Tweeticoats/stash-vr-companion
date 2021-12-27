@@ -618,6 +618,22 @@ mutation performerUpdate($input: PerformerUpdateInput!) {
         return self.__callGraphQL(query, variables)
 
 
+def createTagWithName(name):
+    query = """
+mutation tagCreate($input:TagCreateInput!) {
+tagCreate(input: $input){
+id       
+}
+}
+"""
+    variables = {'input': {
+        'name': name
+    }}
+
+    result = __callGraphQL(query, variables)
+    return result["tagCreate"]["id"]
+
+
 def filter():
     reload_filter_cache()
 
@@ -667,6 +683,16 @@ def rewrite_image_url(scene):
     screenshot_url=scene["paths"]["screenshot"]
     scene["paths"]["screenshot"]='/image_proxy?scene_id='+screenshot_url.split('/')[4]+'&session_id='+screenshot_url.split('/')[5][11:]
 
+
+def setup():
+    tags = ["VR", "SBS", "TB", "export_deovr", "FLAT", "DOME", "SPHERE", "FISHEYE", "MKX200"]
+    reload_filter_cache()
+    for t in tags:
+        if t not in tags_cache.keys():
+            print("creating tag " +t)
+            createTagWithName(t)
+
+
 @app.route('/image_proxy')
 def image_proxy():
     scene_id = request.args.get('scene_id')
@@ -714,6 +740,8 @@ def performer(performer_id):
     return render_template('performer.html',performer=p,filters=filter())
 
 
+
+setup()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0')
