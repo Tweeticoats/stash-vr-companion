@@ -1,23 +1,6 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <title>stash vr companion</title>
+{% extends 'base.html' %}
 
-</head>
-<body>
-<div>
-{% for f in filters %}
-{% if f == filter %}
-
-    <b>{{ f['name'] }}</b>
-{% else %}
-<a href="/filter/{{ f['name'] }}">{{ f['name'] }}</a>
-{% endif %}
-{% endfor %}
-</div>
-<hr/>
+{% block content %}
 
 {% if filter['type']=='PERFORMER' %}
     <a href="/performer/{{ filter['performer_id'] }}"><h1>{{ filter['name'] }}</h1></a>
@@ -28,6 +11,10 @@
 {%  else %}
     <h1>{{ filter['name'] }}</h1>
 {%  endif %}
+
+
+
+
 
 
 {% if scenes%}
@@ -57,5 +44,4 @@
 
 </ul>
 
-</body>
-</html>
+{% endblock %}

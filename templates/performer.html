@@ -1,24 +1,6 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <title>stash vr companion</title>
+{% extends 'base.html' %}
 
-</head>
-<body>
-
-<div>{% for f in filters %}
-{% if f== filter %}
-    <b>{{ f['name'] }}</b>
-    current!
-{% else %}
-<a href="/filter/{{ f['name'] }}">{{ f['name'] }}</a>
-{% endif %}
-{% endfor %}
-</div>
-<hr/>
-
+{% block content %}
 {% if performer%}
 <h1>{{ performer['name'] }}</h1>
     <img alt="Performer" container="" src="{{ performer["image_path"] }}"/>
@@ -33,7 +15,4 @@
     performer not found
 
 {% endif%}
-
-
-</body>
-</html>
+{% endblock %}

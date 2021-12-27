@@ -725,9 +725,6 @@ def show_category(filter_id):
 @app.route('/scene/<int:scene_id>')
 def scene(scene_id):
     s = lookupScene(scene_id)
-    if 'ApiKey' in headers:
-        screenshot_url=s["paths"]["screenshot"]
-        s["paths"]["screenshot"]='/image_proxy?scene_id='+screenshot_url.split('/')[4]+'&session_id='+screenshot_url.split('/')[5][11:]
     return render_template('scene.html',scene=s,filters=filter())
 
 @app.route('/performer/<int:performer_id>')

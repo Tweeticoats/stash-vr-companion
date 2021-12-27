@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>stash vr companion</title>
+
+</head>
+<body>
+<div class="nav">
+<div class="nav-left">
+
+{% for f in filters %}
+{% if f == filter %}
+
+    <b>{{ f['name'] }}</b>
+{% else %}
+<a href="/filter/{{ f['name'] }}">{{ f['name'] }}</a>
+{% endif %}
+{% endfor %}
+</div>
+<div class="nav-right">
+    config
+</div>
+</div>
+
+
+  {% block content %}{% endblock %}
+
+</body>
+</html>

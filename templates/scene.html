@@ -1,23 +1,5 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <title>stash vr companion</title>
-
-</head>
-<body>
-
-<div>{% for f in filters %}
-{% if f['name'] == filter %}
-    <b>{{ f['name'] }}</b>
-{% else %}
-<a href="/filter/{{ f['name'] }}">{{ f['name'] }}</a>
-{% endif %}
-{% endfor %}
-</div>
-<hr/>
-
+{% extends 'base.html' %}
+{% block content %}
 {% if scene%}
 <h1>{{ scene['title'] }}</h1>
     <img src="{{ scene["paths"]["screenshot"] }}"/>
@@ -38,6 +20,4 @@
 {% else %}
 <h1> Error connecting to stash</h1>
 {% endif %}
-
-</body>
-</html>
+{% endblock %}
