@@ -346,83 +346,6 @@ def findStudioIdWithName(name):
     return None
 
 
-@app.route('/deovr',methods=['GET', 'POST'])
-def deovr():
-    data = {}
-    data["authorized"]="1"
-    data["scenes"] = []
-
-    all_scenes=None
-    for f in filter():
-        res=[]
-#        scenes = get_scenes(f['filter'])
-        if all_scenes is None:
-            all_scenes = get_scenes(f['filter'])
-
-        scenes = all_scenes
-        if 'post' in f:
-            var=f['post']
-            scenes=var(scenes,f)
-
-        for s in scenes:
-            r = {}
-            r["title"] = s["title"]
-            r["videoLength"] = int(s["file"]["duration"])
-            if 'ApiKey' in headers:
-                screenshot_url = s["paths"]["screenshot"]
-                r["thumbnailUrl"] = request.base_url[:-6] + '/image_proxy?scene_id=' + screenshot_url.split('/')[
-                    4] + '&session_id=' + screenshot_url.split('/')[5][11:]
-            else:
-                r["thumbnailUrl"] = s["paths"]["screenshot"]
-            r["video_url"] = request.base_url + '/' + s["id"]
-            res.append(r)
-        data["scenes"].append({"name": f['name'], "list": res})
-    return jsonify(data)
-
-
-
-@app.route('/deovr/<int:scene_id>')
-def show_post(scene_id):
-    s = lookupScene(scene_id)
-
-    scene = {}
-    scene["id"] = s["id"]
-    scene["title"] = s["title"]
-    scene["authorized"] = 1
-    scene["description"] = s["details"]
-    scene["thumbnailUrl"] = s["paths"]["screenshot"]
-    scene["isFavorite"] = False
-    scene["isScripted"] = False
-    scene["isWatchlist"] = False
-
-    vs = {}
-    vs["resolution"] = s["file"]["height"]
-    vs["height"] = s["file"]["height"]
-    vs["width"] = s["file"]["width"]
-    vs["size"] = s["file"]["size"]
-    vs["url"] = s["paths"]["stream"]
-    scene["encodings"] = [{"name": s["file"]["video_codec"], "videoSources": [vs]}]
-
-    if "is3d" in s:
-        scene["is3d"] = s["is3d"]
-    if "screenType" in s:
-        scene["screenType"] = s["screenType"]
-    if "stereoMode" in s:
-        scene["stereoMode"] = s["stereoMode"]
-
-    scene["timeStamps"] = None
-
-    actors = []
-    for p in s["performers"]:
-        # actors.append({"id":p["id"],"name":p["name"]})
-        actors.append({"id": p["id"], "name": p["name"]})
-    scene["actors"] = actors
-
-    scene["fullVideoReady"] = True
-    scene["fullAccess"] = True
-    return jsonify(scene)
-
-# Look for studios with the string EXPORT_DEOVR in the description
 def reload_filter_studios():
     query = """query {
       allStudios {
@@ -582,40 +505,40 @@ def reload_filter_cache():
         tags_cache[t['name']]=t
 
 
-    def performer_update(self,performer):
-        query="""
+def performer_update(self,performer):
+    query="""
 mutation performerUpdate($input: PerformerUpdateInput!) {
-  performerUpdate(input: $input) {
-    id
-    checksum
-    name
-    url
-    gender
-    twitter
-    instagram
-    birthdate
-    ethnicity
-    country
-    eye_color
-    height
-    measurements
-    fake_tits
-    career_length
-    tattoos
-    piercings
-    aliases
-    favorite
-    image_path
-    scene_count
-    stash_ids {
-      endpoint
-      stash_id
-    }
-  }
+performerUpdate(input: $input) {
+id
+checksum
+name
+url
+gender
+twitter
+instagram
+birthdate
+ethnicity
+country
+eye_color
+height
+measurements
+fake_tits
+career_length
+tattoos
+piercings
+aliases
+favorite
+image_path
+scene_count
+stash_ids {
+  endpoint
+  stash_id
+}
+}
 }
 """
-        variables = {'input': performer}
-        return self.__callGraphQL(query, variables)
+    variables = {'input': performer}
+    return self.__callGraphQL(query, variables)
 
 
 def createTagWithName(name):
@@ -691,6 +614,86 @@ def setup():
         if t not in tags_cache.keys():
             print("creating tag " +t)
             createTagWithName(t)
+
+
+
+@app.route('/deovr',methods=['GET', 'POST'])
+def deovr():
+    data = {}
+    data["authorized"]="1"
+    data["scenes"] = []
+
+    all_scenes=None
+    for f in filter():
+        res=[]
+#        scenes = get_scenes(f['filter'])
+        if all_scenes is None:
+            all_scenes = get_scenes(f['filter'])
+
+        scenes = all_scenes
+        if 'post' in f:
+            var=f['post']
+            scenes=var(scenes,f)
+
+        for s in scenes:
+            r = {}
+            r["title"] = s["title"]
+            r["videoLength"] = int(s["file"]["duration"])
+            if 'ApiKey' in headers:
+                screenshot_url = s["paths"]["screenshot"]
+                r["thumbnailUrl"] = request.base_url[:-6] + '/image_proxy?scene_id=' + screenshot_url.split('/')[
+                    4] + '&session_id=' + screenshot_url.split('/')[5][11:]
+            else:
+                r["thumbnailUrl"] = s["paths"]["screenshot"]
+            r["video_url"] = request.base_url + '/' + s["id"]
+            res.append(r)
+        data["scenes"].append({"name": f['name'], "list": res})
+    return jsonify(data)
+
+
+
+@app.route('/deovr/<int:scene_id>')
+def show_post(scene_id):
+    s = lookupScene(scene_id)
+
+    scene = {}
+    scene["id"] = s["id"]
+    scene["title"] = s["title"]
+    scene["authorized"] = 1
+    scene["description"] = s["details"]
+    scene["thumbnailUrl"] = s["paths"]["screenshot"]
+    scene["isFavorite"] = False
+    scene["isScripted"] = False
+    scene["isWatchlist"] = False
+
+    vs = {}
+    vs["resolution"] = s["file"]["height"]
+    vs["height"] = s["file"]["height"]
+    vs["width"] = s["file"]["width"]
+    vs["size"] = s["file"]["size"]
+    vs["url"] = s["paths"]["stream"]
+    scene["encodings"] = [{"name": s["file"]["video_codec"], "videoSources": [vs]}]
+
+    if "is3d" in s:
+        scene["is3d"] = s["is3d"]
+    if "screenType" in s:
+        scene["screenType"] = s["screenType"]
+    if "stereoMode" in s:
+        scene["stereoMode"] = s["stereoMode"]
+
+    scene["timeStamps"] = None
+
+    actors = []
+    for p in s["performers"]:
+        # actors.append({"id":p["id"],"name":p["name"]})
+        actors.append({"id": p["id"], "name": p["name"]})
+    scene["actors"] = actors
+
+    scene["fullVideoReady"] = True
+    scene["fullAccess"] = True
+    return jsonify(scene)
+
+
 
 
 @app.route('/image_proxy')
