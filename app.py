@@ -266,7 +266,6 @@ tags{
     scene_type(res)
     if 'ApiKey' in headers:
         rewrite_image_url(res)
-
     return res
 
 def findTagIdWithName(name):
@@ -639,12 +638,13 @@ def deovr():
             r = {}
             r["title"] = s["title"]
             r["videoLength"] = int(s["file"]["duration"])
-            if 'ApiKey' in headers:
-                screenshot_url = s["paths"]["screenshot"]
-                r["thumbnailUrl"] = request.base_url[:-6] + '/image_proxy?scene_id=' + screenshot_url.split('/')[
-                    4] + '&session_id=' + screenshot_url.split('/')[5][11:]
-            else:
-                r["thumbnailUrl"] = s["paths"]["screenshot"]
+#            if 'ApiKey' in headers:
+#                screenshot_url = s["paths"]["screenshot"]
+#                r["thumbnailUrl"] = request.base_url[:-6] + '/image_proxy?scene_id=' + screenshot_url.split('/')[
+#                    4] + '&session_id=' + screenshot_url.split('/')[5][11:]
+#            else:
+#                r["thumbnailUrl"] = s["paths"]["screenshot"]
+            r["thumbnailUrl"] = s["paths"]["screenshot"]
             r["video_url"] = request.base_url + '/' + s["id"]
             res.append(r)
         data["scenes"].append({"name": f['name'], "list": res})
@@ -738,6 +738,58 @@ def performer(performer_id):
     else:
         p['isPinned' ] = False
     return render_template('performer.html',performer=p,filters=filter())
+
+
+@app.route('/gizmovr/<string:filter_id>')
+def gizmovr_category(filter_id):
+    tags=[]
+    filters=filter()
+    for f in filters:
+        if filter_id == f['name']:
+            scenes = get_scenes(f['filter'])
+            if 'post' in f:
+                var=f['post']
+                scenes=var(scenes,f)
+
+            base_path=request.base_url[:-len(request.path)]
+
+            return render_template('gizmovr.html',filters=filters,filter=f,scenes=scenes,isGizmovr=True,base_path=base_path)
+    return "Error, filter does not exist"
+
+
+@app.route('/gizmovr_scene/<int:scene_id>')
+def gizmovr_json(scene_id):
+    s = lookupScene(scene_id)
+    data ={}
+    data["apiType"]="GIZMO"
+    data["id"]=int(s["id"])
+    data["title"] = s["title"]
+    sources={"title":str(s["file"]["width"])+"p",
+ #            "fps":s["file"]["framerate"],
+ #            "size":s["file"]["size"],
+ #            "bitrate":s["file"]["bitrate"],
+ #            "width":s["file"]["width"],
+#             "height": s["file"]["height"],
+             "url":s["paths"]["stream"]+'.mp4'}
+    data["sources"] = [sources]
+#    data["imageThumb"]=s["paths"]["screenshot"]
+
+    angle={}
+    if s["is3d"]:
+        if s["stereoMode"]=="tb":
+            angle["framePacking"]="TB"
+        else:
+            angle["framePacking"] ="SBS"
+        if s["screenType"] == "sphere":
+            angle["angle"]="360"
+        else:
+            angle["angle"] = "180"
+    else:
+        angle["framePacking"]="NONE"
+        angle["angle"]="FLAT"
+    data["format"]=angle
+
+    return jsonify(data)
 
 
 

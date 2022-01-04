@@ -4,9 +4,10 @@
     <meta charset="UTF-8">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <title>stash vr companion</title>
-
+      {% block headers %}{% endblock %}
 </head>
 <body>
+{% block nav %}
 <div class="nav">
 <div class="nav-left">
 
@@ -15,15 +16,25 @@
 
     <b>{{ f['name'] }}</b>
 {% else %}
+    {% if isGizmovr %}
 <a href="/filter/{{ f['name'] }}">{{ f['name'] }}</a>
+    {% else %}
+<a href="/gizmovr/{{ f['name'] }}">{{ f['name'] }}</a>
+    {% endif %}
 {% endif %}
 {% endfor %}
 </div>
 <div class="nav-right">
+Switch to mode:
+{% if isGizmovr %}
+<a href="/filter/Recent">deovr</a>
+{% else %}
+    <a href="/gizmovr/Recent">gizmovr</a>
+{% endif %}
     config
 </div>
 </div>
-
+{% endblock %}
 
   {% block content %}{% endblock %}
 
