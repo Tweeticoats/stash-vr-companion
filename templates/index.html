@@ -1,15 +1,15 @@
 {% extends 'base.html' %}
-
+{{ session['filter'] }}
 {% block content %}
-
-{% if filter['type']=='PERFORMER' %}
-    <a href="/performer/{{ filter['performer_id'] }}"><h1>{{ filter['name'] }}</h1></a>
-{%  elif filter['type'] =='STUDIO' %}
-    <a href="/studio/{{ filter['studio_id'] }}"><h1>{{ filter['name'] }}</h1></a>
-{%  elif filter['type'] =='TAG' %}
-    <b><a href="/tag/{{ filter['id'] }}"><h1>{{ filter['name'] }}</h1></a></b>
+{% if session['filter']['type']=='PERFORMER' %}
+    <a href="/performer/{{ session['filter']['performer_id'] }}"><h1>{{ session['filter']['name'] }}</h1></a>
+{%  elif session['filter']['type'] =='STUDIO' %}
+    <a href="/studio/{{ session['filter']['studio_id'] }}"><h1>{{ session['filter']['name'] }}</h1></a>
+{%  elif session['filter']['type'] =='TAG' %}
+    <b><a href="/tag/{{ session['filter']['id'] }}"><h1>{{ session['filter']['name'] }}</h1></a></b>
 {%  else %}
-    <h1>{{ filter['name'] }}</h1>
+    <h1>{{ session['filter']['name'] }}</h1>
+
 {%  endif %}
 
 
@@ -24,7 +24,7 @@
   <div class="grid-item">
 
 <a href="/scene/{{ scene['id'] }}">
-    <img src="{{ scene["paths"]["screenshot"] }}" width="150" height="150"/>
+    <img src="{{ scene["paths"]["screenshot"] }}" width="200" height="150"/>
     <p>{{ scene['title'] }}</p>
 
 </a>

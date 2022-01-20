@@ -12,11 +12,10 @@
 <div class="nav-left">
 
 {% for f in filters %}
-{% if f == filter %}
-
+{% if f['name'] == session['filter'] %}
     <b>{{ f['name'] }}</b>
 {% else %}
-    {% if isGizmovr %}
+    {% if session['mode']=='deovr' %}
 <a href="/filter/{{ f['name'] }}">{{ f['name'] }}</a>
     {% else %}
 <a href="/gizmovr/{{ f['name'] }}">{{ f['name'] }}</a>
@@ -26,10 +25,10 @@
 </div>
 <div class="nav-right">
 Switch to mode:
-{% if isGizmovr %}
-<a href="/filter/Recent">deovr</a>
-{% else %}
+{% if session['mode']=='deovr' %}
     <a href="/gizmovr/Recent">gizmovr</a>
+{% else %}
+<a href="/filter/Recent">deovr</a>
 {% endif %}
     config
 </div>

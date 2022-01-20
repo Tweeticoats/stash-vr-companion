@@ -18,17 +18,13 @@
 {%  endif %}
 
 
-{{ base_path }}
-
-
-
 {% if scenes%}
 <div class="grid-container">
 
 {% for scene in scenes %}
   <div class="grid-item">
     <a href="#" onclick="GizmovrApi.openVideo({url: '{{ base_path }}/gizmovr_scene/{{ scene['id'] }}'})">
-    <img src="{{ scene["paths"]["screenshot"] }}" width="150" height="150"/>
+    <img src="{{ scene["paths"]["screenshot"] }}" width="200" height="150"/>
     <p>{{ scene['title'] }}</p>
 
 </a>

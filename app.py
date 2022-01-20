@@ -1,7 +1,9 @@
-from flask import Flask,jsonify,render_template,request,Response,redirect
+from flask import Flask,jsonify,render_template,request,Response,redirect,session
 import requests
 import json
 import os
+import datetime
+from pathlib import Path
 
 
 app = Flask(__name__)
@@ -9,6 +11,7 @@ app = Flask(__name__)
 #app.config['SERVER_NAME'] = 'http://deovr.home'
 app.config['GRAPHQL_API'] = os.getenv('API_URL', 'http://localhost:9999/graphql')
 
+app.secret_key = 'N46XYWbnaXG6JtdJZxez'
 
 
 headers = {
@@ -68,6 +71,7 @@ scenes {
   organized
   o_counter
   path
+  interactive
   file {
     size
     duration
@@ -177,6 +181,7 @@ findScene(id: $scene_id){
   organized
   o_counter
   path
+  interactive
   file {
     size
     duration
@@ -663,7 +668,6 @@ def show_post(scene_id):
     scene["description"] = s["details"]
     scene["thumbnailUrl"] = s["paths"]["screenshot"]
     scene["isFavorite"] = False
-    scene["isScripted"] = False
     scene["isWatchlist"] = False
 
     vs = {}
@@ -691,6 +695,12 @@ def show_post(scene_id):
 
     scene["fullVideoReady"] = True
     scene["fullAccess"] = True
+
+    if s["interactive"]:
+        scene["isScripted"] = True
+        scene["fleshlight"]=[{"title": Path(s['path']).stem +'.funscript',"url": s["paths"]["funscript"]}]
+    else:
+        scene["isScripted"] = False
     return jsonify(scene)
 
 
@@ -714,6 +724,7 @@ def index():
 #    return show_category(filter='Recent')
 @app.route('/filter/<string:filter_id>')
 def show_category(filter_id):
+    session['mode']='deovr'
     tags=[]
     filters=filter()
     for f in filters:
@@ -722,7 +733,8 @@ def show_category(filter_id):
             if 'post' in f:
                 var=f['post']
                 scenes=var(scenes,f)
-            return render_template('index.html',filters=filters,filter=f,scenes=scenes)
+            session['filter']=f['name']
+            return render_template('index.html',filters=filters,filter=f,isGizmovr=False,scenes=scenes)
     return "Error, filter does not exist"
 
 @app.route('/scene/<int:scene_id>')
@@ -742,6 +754,7 @@ def performer(performer_id):
 
 @app.route('/gizmovr/<string:filter_id>')
 def gizmovr_category(filter_id):
+    session['mode']='gizmovr'
     tags=[]
     filters=filter()
     for f in filters:
@@ -750,9 +763,8 @@ def gizmovr_category(filter_id):
             if 'post' in f:
                 var=f['post']
                 scenes=var(scenes,f)
-
+            session['filter']=f['name']
             base_path=request.base_url[:-len(request.path)]
-
             return render_template('gizmovr.html',filters=filters,filter=f,scenes=scenes,isGizmovr=True,base_path=base_path)
     return "Error, filter does not exist"
 
@@ -791,6 +803,61 @@ def gizmovr_json(scene_id):
 
     return jsonify(data)
 
+@app.route('/stash-metadata')
+def stash_metadata():
+
+    filter = {}
+    scenes=get_scenes(filter)
+    data = {}
+    data["timestamp"] = datetime.datetime.now().isoformat() + "Z"
+    data["bundleVersion"] = "1"
+    data2 = []
+    index = 1
+
+    if scenes is not None:
+        for s in scenes:
+            index = index + 1
+            r = {}
+            r["_id"] = str(index)
+            r["scene_id"] = s["id"]
+
+            r["title"] = s["title"]
+            if "studio" in s:
+                if s["studio"]:
+                    r["studio"] = s["studio"]["name"]
+            if s["is3d"]:
+                r["scene_type"]="VR"
+            else:
+                r["scene_type"]="2D"
+
+            if "screenType" in s:
+                r["screenType"] = s["screenType"]
+            if "stereoMode" in s:
+                r["stereoMode"] = s["stereoMode"]
+
+            r["gallery"] = None
+            tags = []
+            if "tags" in s:
+                for t in s["tags"]:
+                    tags.append(t["name"])
+            r["tags"] = tags
+
+            performer = []
+            if "performers" in s:
+                for t in s["performers"]:
+                    performer.append(t["name"])
+            r["cast"] = performer
+            path = s["path"][s["path"].rindex('/') + 1:]
+            r["filename"] = [path]
+            r["synopsis"] = s["details"]
+            r["released"] = s["date"]
+            r["homepage_url"] = s["url"]
+            r["covers"]=[s["paths"]["screenshot"]]
+
+            data2.append(r)
+
+    data["scenes"] = data2
+    return jsonify(data)
 
 
 setup()

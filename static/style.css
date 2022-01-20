@@ -1,13 +1,13 @@
 .grid-container {
   display: grid;
-  grid-template-columns: auto auto auto auto auto;
+  grid-template-columns: repeat( auto-fit, minmax(300px, 1fr) );
   background-color: #2196F3;
   padding: 10px;
 }
 .grid-item {
   border: 1px solid;
   padding: 20px;
-  font-size: 30px;
+  font-size: 14px;
   text-align: center;
   font-family: sans-serif;
 }
