@@ -742,7 +742,7 @@ def show_post(scene_id):
     wmfhd["width"] = 1080
     wmfhd["url"] = s["paths"]["stream"]+".webm?resolution=FULL_HD"
 
-    scene["encodings"] = [{"name": "stream", "videoSources": [vs]},{"name": "mp4", "videoSources": [vs_mpg_StandardHd,vs_mpg_FullHd,vs_mpg_QuadHd,vs_mpg_VrHd,vs_mpg_FourK]},{"name": "webm", "videoSources": [wmshd,wmfhd]}]
+    scene["encodings"] = [{"name": "mp4", "videoSources": [vs_mpg_StandardHd,vs_mpg_FullHd,vs_mpg_QuadHd,vs_mpg_VrHd,vs_mpg_FourK]},{"name": "webm", "videoSources": [wmshd,wmfhd]},{"name": "stream", "videoSources": [vs]}]
 
     if "is3d" in s:
         scene["is3d"] = s["is3d"]
