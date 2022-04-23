@@ -3,7 +3,11 @@ import requests
 import json
 import os
 import datetime
+import random
+from threading import Timer
 from pathlib import Path
+from datetime import datetime
+from apscheduler.schedulers.background import BackgroundScheduler
 
 
 app = Flask(__name__)
@@ -28,7 +32,10 @@ studios=[]
 performers=[]
 tags_filters={}
 tags_cache={}
-
+config={}
+cache_refresh_time=None
+#scene_cache=[]
+cache={"refresh_time":0,"scenes":[]}
 
 def __callGraphQL(query, variables=None):
     json = {}
@@ -373,6 +380,8 @@ def reload_filter_studios():
                 studio_fiter['filter'] = {"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
                 studio_fiter['post']=tag_cleanup_studio
                 res.append(studio_fiter)
+        if s['name']=='vr-companion-config':
+            config=json.loads(s['details'])
     return res
 
 def reload_filter_performer():
@@ -443,6 +452,10 @@ def tag_cleanup_star(scenes,filter):
         if s["rating"]==5:
             res.append(s)
     return res
+
+
+def tag_cleanup_random(scenes,filter):
+    return random.sample(scenes,30)
 
 def tag_cleanup_studio(scenes,filter):
     res=[]
@@ -589,8 +602,14 @@ def filter():
     star_filter['post']=tag_cleanup_star
     star_filter['type'] = 'BUILTIN'
 
+    random_filter = {}
+    random_filter['name'] = 'Random'
+    random_filter['filter'] = {
+        "tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
+    random_filter['post'] = tag_cleanup_random
+    random_filter['type'] = 'BUILTIN'
 
-    filter=[recent_filter,vr_filter,flat_filter,star_filter]
+    filter=[recent_filter,vr_filter,flat_filter,star_filter,random_filter]
 
     for f in reload_filter_studios():
         filter.append(f)
@@ -631,10 +650,11 @@ def deovr():
     for f in filter():
         res=[]
 #        scenes = get_scenes(f['filter'])
-        if all_scenes is None:
-            all_scenes = get_scenes(f['filter'])
+#        if all_scenes is None:
+#            all_scenes = get_scenes(f['filter'])
 
-        scenes = all_scenes
+#        scenes = all_scenes
+        scenes=cache['scenes']
         if 'post' in f:
             var=f['post']
             scenes=var(scenes,f)
@@ -729,7 +749,8 @@ def show_category(filter_id):
     filters=filter()
     for f in filters:
         if filter_id == f['name']:
-            scenes = get_scenes(f['filter'])
+#            scenes = get_scenes(f['filter'])
+            scenes=cache['scenes']
             if 'post' in f:
                 var=f['post']
                 scenes=var(scenes,f)
@@ -858,9 +879,40 @@ def stash_metadata():
 
     data["scenes"] = data2
     return jsonify(data)
+@app.route('/info')
+def info():
+    refresh_time=datetime.now()-cache['refresh_time']
+    res="cache refreshed "+str(refresh_time.total_seconds())+" seconds ago."
+    res=res+"cache size="+str(len(cache['scenes']))
+    return res
+@app.route('/clear-cache')
+def clearCache():
+    refreshCache()
+    return redirect("/filter/Recent", code=302)
+
+
+
+def refreshCache():
+    print("Cache currently contains",len(cache['scenes']))
+    print("refreshing cache")
+    reload_filter_cache()
+    scenes=get_scenes(scene_filter={"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}})
+
+    cache['refresh_time']=datetime.now()
+    cache['scenes']=scenes
+    print("Cache currently contains",len(cache['scenes']))
+
+
 
 
 setup()
+refreshCache()
+#t = Timer(500, refreshCache)
+#t.start()
+
+sched = BackgroundScheduler(daemon=True)
+sched.add_job(refreshCache,'interval',minutes=5)
+sched.start()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0')
