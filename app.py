@@ -696,7 +696,33 @@ def show_post(scene_id):
     vs["width"] = s["file"]["width"]
     vs["size"] = s["file"]["size"]
     vs["url"] = s["paths"]["stream"]
-    scene["encodings"] = [{"name": s["file"]["video_codec"], "videoSources": [vs]}]
+
+    vshd = {}
+    vshd["resolution"] = 720
+    vshd["height"] = 1440
+    vshd["width"] = 720
+    vshd["url"] = s["paths"]["stream"]+".mp4?resolution=STANDARD_HD"
+
+    vsfhd = {}
+    vsfhd["resolution"] = 1080
+    vsfhd["height"] = 2160
+    vsfhd["width"] = 1080
+    vsfhd["url"] = s["paths"]["stream"]+".mp4?resolution=FULL_HD"
+
+    wmshd = {}
+    wmshd["resolution"] = 720
+    wmshd["height"] = 1440
+    wmshd["width"] = 720
+    wmshd["url"] = s["paths"]["stream"]+".webm?resolution=STANDARD_HD"
+
+    wmfhd = {}
+    wmfhd["resolution"] = 1080
+    wmfhd["height"] = 2160
+    wmfhd["width"] = 1080
+    wmfhd["url"] = s["paths"]["stream"]+".webm?resolution=FULL_HD"
+
+
+    scene["encodings"] = [{"name": "stream", "videoSources": [vs]},{"name": "mp4", "videoSources": [vshd,vsfhd]},{"name": "webm", "videoSources": [wmshd,wmfhd]}]
 
     if "is3d" in s:
         scene["is3d"] = s["is3d"]
