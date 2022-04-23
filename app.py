@@ -697,17 +697,38 @@ def show_post(scene_id):
     vs["size"] = s["file"]["size"]
     vs["url"] = s["paths"]["stream"]
 
-    vshd = {}
-    vshd["resolution"] = 720
-    vshd["height"] = 1440
-    vshd["width"] = 720
-    vshd["url"] = s["paths"]["stream"]+".mp4?resolution=STANDARD_HD"
+    vs_mpg_StandardHd = {}
+    vs_mpg_StandardHd["resolution"] = 720
+    vs_mpg_StandardHd["height"] = 720
+    vs_mpg_StandardHd["width"] = 1080
+    vs_mpg_StandardHd["url"] = s["paths"]["stream"]+".mp4?resolution=STANDARD_HD"
 
-    vsfhd = {}
-    vsfhd["resolution"] = 1080
-    vsfhd["height"] = 2160
-    vsfhd["width"] = 1080
-    vsfhd["url"] = s["paths"]["stream"]+".mp4?resolution=FULL_HD"
+    vs_mpg_FullHd = {}
+    vs_mpg_FullHd["resolution"] = 1080
+    vs_mpg_FullHd["height"] = 1080
+    vs_mpg_FullHd["width"] = 1440
+    vs_mpg_FullHd["url"] = s["paths"]["stream"]+".mp4?resolution=FULL_HD"
+
+    vs_mpg_QuadHd = {}
+    vs_mpg_QuadHd["resolution"] = 1440
+    vs_mpg_QuadHd["height"] = 1440
+    vs_mpg_QuadHd["width"] = 1920
+    vs_mpg_QuadHd["url"] = s["paths"]["stream"]+".mp4?resolution=QUAD_HD"
+
+    vs_mpg_VrHd = {}
+    vs_mpg_VrHd["resolution"] = 1920
+    vs_mpg_VrHd["height"] = 1920
+    vs_mpg_VrHd["width"] = 2160
+    vs_mpg_VrHd["url"] = s["paths"]["stream"]+".mp4?resolution=VR_HD"
+
+    vs_mpg_FourK = {}
+    vs_mpg_FourK["resolution"] = 2160
+    vs_mpg_FourK["height"] = 2160
+    vs_mpg_FourK["width"] = 2880
+    vs_mpg_FourK["url"] = s["paths"]["stream"]+".mp4?resolution=FOUR_K"
+
+
+
 
     wmshd = {}
     wmshd["resolution"] = 720
@@ -721,8 +742,7 @@ def show_post(scene_id):
     wmfhd["width"] = 1080
     wmfhd["url"] = s["paths"]["stream"]+".webm?resolution=FULL_HD"
 
-
-    scene["encodings"] = [{"name": "stream", "videoSources": [vs]},{"name": "mp4", "videoSources": [vshd,vsfhd]},{"name": "webm", "videoSources": [wmshd,wmfhd]}]
+    scene["encodings"] = [{"name": "stream", "videoSources": [vs]},{"name": "mp4", "videoSources": [vs_mpg_StandardHd,vs_mpg_FullHd,vs_mpg_QuadHd,vs_mpg_VrHd,vs_mpg_FourK]},{"name": "webm", "videoSources": [wmshd,wmfhd]}]
 
     if "is3d" in s:
         scene["is3d"] = s["is3d"]
