@@ -35,7 +35,10 @@ tags_cache={}
 config={}
 cache_refresh_time=None
 #scene_cache=[]
-cache={"refresh_time":0,"scenes":[]}
+cache={"refresh_time":0,"scenes":[],"image_cache":{}}
+
+image_dir = os.getenv('IMAGE_PATH', './images')
+
 
 def __callGraphQL(query, variables=None):
     json = {}
@@ -79,6 +82,8 @@ scenes {
   o_counter
   path
   interactive
+  updated_at
+  created_at
   file {
     size
     duration
@@ -169,8 +174,8 @@ tags{
     res= result["findScenes"]["scenes"]
     for s in res:
         scene_type(s)
-        if 'ApiKey' in headers:
-            rewrite_image_url(s)
+#        if 'ApiKey' in headers:
+#            rewrite_image_url(s)
     return res
 
 
@@ -189,6 +194,8 @@ findScene(id: $scene_id){
   o_counter
   path
   interactive
+  updated_at
+  created_at
   file {
     size
     duration
@@ -276,8 +283,8 @@ tags{
     result = __callGraphQL(query, variables)
     res= result["findScene"]
     scene_type(res)
-    if 'ApiKey' in headers:
-        rewrite_image_url(res)
+#    if 'ApiKey' in headers:
+#        rewrite_image_url(res)
     return res
 
 def findTagIdWithName(name):
@@ -669,7 +676,8 @@ def deovr():
 #                    4] + '&session_id=' + screenshot_url.split('/')[5][11:]
 #            else:
 #                r["thumbnailUrl"] = s["paths"]["screenshot"]
-            r["thumbnailUrl"] = s["paths"]["screenshot"]
+            r["thumbnailUrl"] = request.url_root +s["paths"]["screenshot"]
+#            r["thumbnailUrl"] = '/image/' + s["id"]
             r["video_url"] = request.base_url + '/' + s["id"]
             res.append(r)
         data["scenes"].append({"name": f['name'], "list": res})
@@ -686,7 +694,8 @@ def show_post(scene_id):
     scene["title"] = s["title"]
     scene["authorized"] = 1
     scene["description"] = s["details"]
-    scene["thumbnailUrl"] = s["paths"]["screenshot"]
+    scene["thumbnailUrl"] = request.url_root +s["paths"]["screenshot"]
+#    scene["thumbnailUrl"] = '/image/' + s["id"]
     scene["isFavorite"] = False
     scene["isWatchlist"] = False
 
@@ -948,13 +957,55 @@ def refreshCache():
     cache['scenes']=scenes
     print("Cache currently contains",len(cache['scenes']))
 
+def setup_image_cache():
+    modified=False
+    print("Caching images")
+    if not os.path.exists(image_dir):
+        os.mkdir(image_dir)
+    if os.path.exists(os.path.join(image_dir,"index.json")):
+        print("loading cache index")
+        with open(os.path.join(image_dir,"index.json")) as f:
+            cache['image_cache']=json.load(f)
+            print("loaded cache index" +str(len(cache['image_cache'])))
+    for index,s in enumerate(cache['scenes']):
+        if not os.path.exists(os.path.join(image_dir,s['id'])):
+            print("fetching image"+s['id'])
+            screenshot = s['paths']['screenshot']
+            r = requests.get(screenshot, headers=headers)
+            print("Saving image: "+s['id'])
+            with open(os.path.join(image_dir,s['id']),"xb") as f:
+                f.write(r.content)
+                f.close()
+                cache['image_cache'][s['id']]={"file":os.path.join(image_dir,s['id']),"mime":r.headers['Content-Type'],"updated":s["updated_at"]}
+    #            scene["paths"]["orig_screenshot"] =scene["paths"]["screenshot"]
+    #            cache['scenes'][index]["paths"]["orig_screenshot"]=scene["paths"]["screenshot"]
+                cache['scenes'][index]["paths"]["screenshot"]='/image/'+str(s['id'])
+                modified=True
+            #print(cache['image_cache'][s['id']])
+        else:
+            cache['scenes'][index]["paths"]["screenshot"]='/image/'+str(s['id'])
+    if modified:
+        with open(os.path.join(image_dir, "index.json"),'w') as f:
+            json.dump(cache['image_cache'], f)
+            print("saved cache index")
+    print("finished caching images")
+    print(cache['image_cache'])
+#    return Response(r.content,content_type=r.headers['Content-Type'])
 
 
+@app.route('/image/<int:scene_id>')
+def images(scene_id):
+    print (len(cache['image_cache']))
+    if str(scene_id) in cache['image_cache']:
+        print("image file: "+str(cache['image_cache'][str(scene_id)]))
+        with open(cache['image_cache'][str(scene_id)]["file"],'rb') as f:
+            image=f.read()
+            return Response(image,content_type=cache['image_cache'][str(scene_id)]["mime"])
+    return "image not in cache"
 
 setup()
 refreshCache()
-#t = Timer(500, refreshCache)
-#t.start()
+setup_image_cache()
 
 sched = BackgroundScheduler(daemon=True)
 sched.add_job(refreshCache,'interval',minutes=5)
