@@ -2,6 +2,7 @@ FROM python
 label org.opencontainers.image.source = "https://github.com/Tweeticoats/stash-vr-companion"
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
+ENV CACHE_DIR /cache/
 COPY requirements.txt /
 RUN pip3 install -r /requirements.txt
 

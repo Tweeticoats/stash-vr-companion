@@ -33,15 +33,18 @@ To Pin a tag the tag must be a sub tag of export_deovr. Edit export_deovr and ad
 ## Running in docker
 Configuration is done by providing environment variables to the docker container.
 The web server is running on port 5000 in the container.
+The folder /cache is used for an image cache, this can be stored in 
 
-| Parameter                                     | Function |
-|:----------------------------------------------| --- |
-| `-e API_URL=http://192.168.0.22:9999/graphql` | Specify the stash instance to connect to
-| `-e API_KEY=xxxxxxxxx`                        | Specify the api key used to connect to stash if you have password protected your instance
+| Parameter                                     | Function                                                                                                      |
+|:----------------------------------------------|---------------------------------------------------------------------------------------------------------------|
+| `-e API_URL=http://192.168.0.22:9999/graphql` | Specify the stash instance to connect to                                                                      |
+| `-e API_KEY=xxxxxxxxx`                        | Specify the api key used to connect to stash if you have password protected your instance                     |
+| `-e CACHE_DIR=/cache/`                        | The directory used to cache images, defaults to /cache/ in the docker container and ./cache/ if not specified |
 
 ```
 docker stop stash-vr-companion
 docker rm stash-vr-companion
+docker volume create stash-cr-companion
 docker pull ghcr.io/tweeticoats/stash-vr-companion:latest
-docker run -d  --name=stash-vr-companion --restart=unless-stopped -p 5000:5000 -e API_URL=http://192.168.0.22:9999/graphql ghcr.io/tweeticoats/stash-vr-companion:latest
+docker run -d  --name=stash-vr-companion --restart=unless-stopped -v stash-cr-companion:/cache/ -p 5000:5000 -e API_URL=http://192.168.0.22:9999/graphql ghcr.io/tweeticoats/stash-vr-companion:latest
 ```
