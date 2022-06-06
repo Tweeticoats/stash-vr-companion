@@ -165,6 +165,11 @@ tags{
     endpoint
     stash_id
   }
+  scene_markers{
+    id
+    title
+    seconds
+  }
 }
 }
 }"""
@@ -276,6 +281,11 @@ tags{
   stash_ids{
     endpoint
     stash_id
+  }
+  scene_markers{
+    id
+    title
+    seconds
   }
 }
 }"""
@@ -697,6 +707,7 @@ def show_post(scene_id):
 #    scene["thumbnailUrl"] = request.url_root +s["paths"]["screenshot"]
 #    scene["thumbnailUrl"] = '/image/' + s["id"]
     scene["thumbnailUrl"] = request.url_root +'image/'+  s["id"]
+    scene["videoPreview"] = s["paths"]["preview"]
     scene["isFavorite"] = False
     scene["isWatchlist"] = False
 
@@ -777,6 +788,13 @@ def show_post(scene_id):
         scene["fleshlight"]=[{"title": Path(s['path']).stem +'.funscript',"url": s["paths"]["funscript"]}]
     else:
         scene["isScripted"] = False
+    if "scene_markers" in s:
+        ts=[]
+        for m in s["scene_markers"]:
+            ts.append({"ts":m["seconds"],"name":m["title"]})
+        scene["timeStamps"]=ts
+    scene["videoLength"]= int(s["file"]["duration"])
+
     return jsonify(scene)
 
 
