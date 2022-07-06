@@ -1024,6 +1024,128 @@ def images(scene_id):
             return Response(image,content_type=cache['image_cache'][str(scene_id)]["mime"])
     return "image not in cache"
 
+
+
+
+@app.route('/heresphere',methods=['GET', 'POST'])
+def heresphere():
+    data = {}
+    data["access"]="1"
+    data["banner"]={"image": "https://www.example.com/heresphere/banner.png","link":""}
+    data["library"] = []
+
+    all_scenes=None
+    for f in filter():
+        res=[]
+#        scenes = get_scenes(f['filter'])
+#        if all_scenes is None:
+#            all_scenes = get_scenes(f['filter'])
+
+#        scenes = all_scenes
+        scenes=cache['scenes']
+#        if 'post' in f:
+#            var=f['post']
+#            scenes=var(scenes,f)
+
+        for s in scenes:
+            res.append(request.url_root + 'heresphere/' + s["id"])
+#            r = {}
+#            r["title"] = s["title"]
+#            r["videoLength"] = int(s["file"]["duration"])
+#            if 'ApiKey' in headers:
+#                screenshot_url = s["paths"]["screenshot"]
+#                r["thumbnailUrl"] = request.base_url[:-6] + '/image_proxy?scene_id=' + screenshot_url.split('/')[
+#                    4] + '&session_id=' + screenshot_url.split('/')[5][11:]
+#            else:
+#                r["thumbnailUrl"] = s["paths"]["screenshot"]
+#            r["thumbnailUrl"] = request.url_root[:-1] +s["paths"]["screenshot"]
+#            r["thumbnailUrl"] = '/image/' + s["id"]
+#            r["video_url"] = request.url_root + 'heresphere/' + s["id"]
+#            res.append(r)
+        data["library"].append({"name": f['name'], "list": res})
+    return jsonify(data),{"HereSphere-JSON-Version":1}
+
+
+@app.route('/heresphere/<int:scene_id>',methods=['GET', 'POST'])
+def heresphere_scene(scene_id):
+    s = lookupScene(scene_id)
+
+    scene = {}
+#    scene["id"] = s["id"]
+    scene["title"] = s["title"]
+    scene["access"] = 1
+    scene["description"] = s["details"]
+    scene["thumbnailImage"] = request.url_root +'image/'+  s["id"]
+    scene["thumbnailVideo"] = s["paths"]["preview"]
+    scene["dateReleased"]=s["date"]
+    scene["dateAdded"] = s["date"]
+    scene["duration"]= int(s["file"]["duration"]*1000)
+    scene["favorites"]=0
+    scene["comments"]=0
+    scene["isFavorite"]=0
+    if s["rating"]:
+        scene["rating"]=s["rating"]
+    else:
+        scene["rating"]=0
+
+    vs = {}
+    vs["resolution"] = s["file"]["height"]
+    vs["height"] = s["file"]["height"]
+    vs["width"] = s["file"]["width"]
+    vs["size"] = s["file"]["size"]
+    vs["url"] = s["paths"]["stream"]
+
+    scene["media"] = [{"name": "stream", "sources": [vs]}]
+
+    if "screenType" in s:
+        scene["projection"] = s["screenType"]
+    if "stereoMode" in s:
+        scene["stereo"] = s["stereoMode"]
+
+    if s["is3d"]:
+        if s["stereoMode"]=="tb":
+            scene["stereo"]="tb"
+        else:
+            scene["stereo"] ="sbs"
+        if s["screenType"] == "sphere":
+            scene["projection"]="equirectangular360"
+        elif s["screenType"] == "mkx200":
+            scene["projection"]="fisheye"
+            scene["lens"]="MKX220"
+        else:
+            scene["projection"] = "equirectangular"
+    else:
+        scene["projection"]="perspective"
+        scene["stereo"]="mono"
+
+
+
+
+    tags=[]
+
+
+    for t in s["tags"]:
+        tags.append({"name":t["name"],"start":0,"end":0,"track":0,"rating":0})
+    if "scene_markers" in s:
+        for m in s["scene_markers"]:
+            tags.append({"start":m["seconds"],"end":0,"name":m["title"],"track":0,"rating":0})
+
+    for p in s["performers"]:
+        # actors.append({"id":p["id"],"name":p["name"]})
+        tags.append( {"name": "Talent:"+p["name"],"track":1,"start":0,"end":0,"rating":0})
+    if s["studio"]:
+        tags.append({"name":"Studio:"+s["studio"]["name"],"track":2,"start":0,"end":0,"rating":0})
+
+    if s["interactive"]:
+        scene["scripts"]=[{"title": Path(s['path']).stem +'.funscript',"url": s["paths"]["funscript"],"rating":0}]
+
+    scene["tags"]=tags
+
+
+    return jsonify(scene),{"HereSphere-JSON-Version":1}
+
+
+
 setup()
 setup_image_cache()
 refreshCache()
