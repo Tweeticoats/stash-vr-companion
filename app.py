@@ -496,6 +496,14 @@ def scene_type(scene):
         scene["is3d"] = True
         scene["screenType"] = "dome"
         scene["stereoMode"] = "sbs"
+    elif "_MKX200" in scene["path"]:
+        scene["is3d"] = True
+        scene["screenType"] = "mkx200"
+        scene["stereoMode"] = "sbs"
+    elif "_FISHEYE190" in scene["path"]:
+        scene["is3d"] = True
+        scene["screenType"] = "rf52"
+        scene["stereoMode"] = "sbs"
     else:
         scene["screenType"] = "flat"
         scene["is3d"] = False
@@ -513,12 +521,22 @@ def scene_type(scene):
     elif 'SPHERE' in [x["name"] for x in scene["tags"]]:
         scene["is3d"] = True
         scene["screenType"] = "sphere"
-    elif 'FISHEYE' in [x["name"] for x in scene["tags"]]:
-        scene["is3d"] = True
-        scene["screenType"] = "fisheye"
     elif 'MKX200' in [x["name"] for x in scene["tags"]]:
         scene["is3d"] = True
         scene["screenType"] = "mkx200"
+    elif '200°' in [x["name"] for x in scene["tags"]]:
+        scene["is3d"] = True
+        scene["screenType"] = "mkx200"
+    elif 'RF52' in [x["name"] for x in scene["tags"]]:
+        scene["is3d"] = True
+        scene["screenType"] = "rf52"
+    elif '190°' in [x["name"] for x in scene["tags"]]:
+        scene["is3d"] = True
+        scene["screenType"] = "rf52"
+    elif 'FISHEYE' in [x["name"] for x in scene["tags"]]:
+        scene["is3d"] = True
+        scene["screenType"] = "fisheye"
+
 
 
 def reload_filter_cache():
@@ -1112,6 +1130,10 @@ def heresphere_scene(scene_id):
         elif s["screenType"] == "mkx200":
             scene["projection"]="fisheye"
             scene["lens"]="MKX220"
+        elif s["screenType"] == "rf52":
+            scene["projection"]="fisheye"
+            scene["lens"]="rf52"
+
         else:
             scene["projection"] = "equirectangular"
     else:
