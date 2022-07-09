@@ -472,7 +472,9 @@ def tag_cleanup_star(scenes,filter):
 
 
 def tag_cleanup_random(scenes,filter):
-    return random.sample(scenes,30)
+    if len(scenes) > 30:
+        return random.sample(scenes,30)
+    return scenes
 
 def tag_cleanup_studio(scenes,filter):
     res=[]
