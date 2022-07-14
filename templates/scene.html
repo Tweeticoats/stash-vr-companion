@@ -4,6 +4,10 @@
 <h1>{{ scene['title'] }}</h1>
     <img src="{{ scene["paths"]["screenshot"] }}"/>
     <br/>
+    {%  if scene["interactive"] %}
+        <img src="{{ scene["paths"]["interactive_heatmap"] }}"/>
+        <br/>
+    {% endif %}
     {% if scene["is3d"] %}
         Scene Type: <b>VR</b>
 {% else %}

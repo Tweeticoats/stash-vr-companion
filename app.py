@@ -103,6 +103,7 @@ scenes {
     chapters_vtt
     sprite
     funscript
+    interactive_heatmap
   }
   galleries {
     id
@@ -220,6 +221,7 @@ findScene(id: $scene_id){
     chapters_vtt
     sprite
     funscript
+    interactive_heatmap
   }
   galleries {
     id
@@ -296,6 +298,24 @@ tags{
 #    if 'ApiKey' in headers:
 #        rewrite_image_url(res)
     return res
+
+def updateScene(self, sceneData):
+    query = """mutation sceneUpdate($input:SceneUpdateInput!) {
+    sceneUpdate(input: $input) {
+    id
+    }
+}"""
+    variables = {'input': sceneData}
+
+    self.__callGraphQL(query, variables)
+
+
+
+def findScene(id):
+    for s in cache["scenes"]:
+        if s["id"]==str(id):
+            return s
+    return None
 
 def findTagIdWithName(name):
     query = """query {
@@ -469,6 +489,14 @@ def tag_cleanup_star(scenes,filter):
         if s["rating"]==5:
             res.append(s)
     return res
+
+def tag_cleanup_interactive(scenes,filter):
+    res=[]
+    for s in scenes:
+        if s["interactive"]:
+            res.append(s)
+    return res
+
 
 
 def tag_cleanup_random(scenes,filter):
@@ -646,6 +674,13 @@ def filter():
     random_filter['post'] = tag_cleanup_random
     random_filter['type'] = 'BUILTIN'
 
+    random_filter = {}
+    random_filter['name'] = 'Interactive'
+    random_filter['filter'] = {
+        "tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
+    random_filter['post'] = tag_cleanup_interactive
+    random_filter['type'] = 'BUILTIN'
+
     filter=[recent_filter,vr_filter,flat_filter,star_filter,random_filter]
 
     for f in reload_filter_studios():
@@ -717,7 +752,7 @@ def deovr():
 
 @app.route('/deovr/<int:scene_id>')
 def show_post(scene_id):
-    s = lookupScene(scene_id)
+    s = findScene(scene_id)
 
     scene = {}
     scene["id"] = s["id"]
@@ -854,7 +889,7 @@ def show_category(filter_id):
 
 @app.route('/scene/<int:scene_id>')
 def scene(scene_id):
-    s = lookupScene(scene_id)
+    s = findScene(scene_id)
     return render_template('scene.html',scene=s,filters=filter())
 
 @app.route('/performer/<int:performer_id>')
@@ -1051,44 +1086,27 @@ def images(scene_id):
 def heresphere():
     data = {}
     data["access"]="1"
-    data["banner"]={"image": "https://www.example.com/heresphere/banner.png","link":""}
+#    data["banner"]={"image": "https://www.example.com/heresphere/banner.png","link":""}
     data["library"] = []
 
     all_scenes=None
     for f in filter():
-        res=[]
-#        scenes = get_scenes(f['filter'])
-#        if all_scenes is None:
-#            all_scenes = get_scenes(f['filter'])
-
-#        scenes = all_scenes
-        scenes=cache['scenes']
-#        if 'post' in f:
-#            var=f['post']
-#            scenes=var(scenes,f)
-
-        for s in scenes:
-            res.append(request.url_root + 'heresphere/' + s["id"])
-#            r = {}
-#            r["title"] = s["title"]
-#            r["videoLength"] = int(s["file"]["duration"])
-#            if 'ApiKey' in headers:
-#                screenshot_url = s["paths"]["screenshot"]
-#                r["thumbnailUrl"] = request.base_url[:-6] + '/image_proxy?scene_id=' + screenshot_url.split('/')[
-#                    4] + '&session_id=' + screenshot_url.split('/')[5][11:]
-#            else:
-#                r["thumbnailUrl"] = s["paths"]["screenshot"]
-#            r["thumbnailUrl"] = request.url_root[:-1] +s["paths"]["screenshot"]
-#            r["thumbnailUrl"] = '/image/' + s["id"]
-#            r["video_url"] = request.url_root + 'heresphere/' + s["id"]
-#            res.append(r)
-        data["library"].append({"name": f['name'], "list": res})
+        if 'post' in f:
+            var=f['post']
+            scenes=var(cache['scenes'],f)
+            data["library"].append({"name": f['name'], "list": [request.url_root + 'heresphere/' + s["id"] for s in scenes]})
     return jsonify(data),{"HereSphere-JSON-Version":1}
 
 
 @app.route('/heresphere/<int:scene_id>',methods=['GET', 'POST'])
 def heresphere_scene(scene_id):
-    s = lookupScene(scene_id)
+    s=findScene(scene_id)
+
+#    content = request.get_json(silent=True)
+#    if content:
+#        if "isFavorite" in content:
+#            updateScene(s)
+
 
     scene = {}
 #    scene["id"] = s["id"]
@@ -1099,12 +1117,14 @@ def heresphere_scene(scene_id):
     scene["thumbnailVideo"] = s["paths"]["preview"]
     scene["dateReleased"]=s["date"]
     scene["dateAdded"] = s["date"]
-    scene["duration"]= int(s["file"]["duration"]*1000)
+    scene["duration"]= int(s["file"]["duration"])
     scene["favorites"]=0
     scene["comments"]=0
-    scene["isFavorite"]=0
+    scene["isFavorite"]=False
     if s["rating"]:
         scene["rating"]=s["rating"]
+        if s["rating"]==5:
+            scene["isFavorite"] = True
     else:
         scene["rating"]=0
 
@@ -1161,7 +1181,7 @@ def heresphere_scene(scene_id):
         tags.append({"name":"Studio:"+s["studio"]["name"],"track":2,"start":0,"end":0,"rating":0})
 
     if s["interactive"]:
-        scene["scripts"]=[{"title": Path(s['path']).stem +'.funscript',"url": s["paths"]["funscript"],"rating":0}]
+        scene["scripts"]=[{"name": Path(s['path']).stem +'.funscript',"url": s["paths"]["funscript"],"rating":1}]
 
     scene["tags"]=tags
 
