@@ -567,6 +567,10 @@ def scene_type(scene):
         scene["is3d"] = True
         scene["screenType"] = "fisheye"
 
+    if 'ApiKey' in headers:
+        scene["heatmap"]='/heatmap_proxy/'+scene["id"]
+    else:
+        scene["heatmap"]=scene["paths"]["interactive_heatmap"]
 
 
 def reload_filter_cache():
@@ -674,14 +678,14 @@ def filter():
     random_filter['post'] = tag_cleanup_random
     random_filter['type'] = 'BUILTIN'
 
-    random_filter = {}
-    random_filter['name'] = 'Interactive'
-    random_filter['filter'] = {
+    interactive_filter = {}
+    interactive_filter['name'] = 'Interactive'
+    interactive_filter['filter'] = {
         "tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
-    random_filter['post'] = tag_cleanup_interactive
-    random_filter['type'] = 'BUILTIN'
+    interactive_filter['post'] = tag_cleanup_interactive
+    interactive_filter['type'] = 'BUILTIN'
 
-    filter=[recent_filter,vr_filter,flat_filter,star_filter,random_filter]
+    filter=[recent_filter,vr_filter,flat_filter,star_filter,random_filter,interactive_filter]
 
     for f in reload_filter_studios():
         filter.append(f)
@@ -841,6 +845,12 @@ def show_post(scene_id):
     if s["interactive"]:
         scene["isScripted"] = True
         scene["fleshlight"]=[{"title": Path(s['path']).stem +'.funscript',"url": s["paths"]["funscript"]}]
+
+        if 'ApiKey' in headers:
+            scene["fleshlight"] = [{"title": Path(s['path']).stem + '.funscript', "url": request.url_root+'script_proxy/'+s['id']}]
+        else:
+            scene["fleshlight"] = [{"title": Path(s['path']).stem + '.funscript', "url": s["paths"]["funscript"]}]
+
     else:
         scene["isScripted"] = False
     if "scene_markers" in s:
@@ -861,6 +871,18 @@ def image_proxy():
     session_id = request.args.get('session_id')
     url=app.config['GRAPHQL_API'][:-8]+'/scene/'+scene_id+'/screenshot?'+session_id
     r = requests.get(url,headers=headers)
+    return Response(r.content,content_type=r.headers['Content-Type'])
+
+@app.route('/script_proxy/<int:scene_id>')
+def script_proxy(scene_id):
+    s = lookupScene(scene_id)
+    r = requests.get(s["paths"]["funscript"],headers=headers)
+    return Response(r.content,content_type=r.headers['Content-Type'])
+
+@app.route('/heatmap_proxy/<int:scene_id>')
+def heatmap_proxy(scene_id):
+    s = lookupScene(scene_id)
+    r = requests.get(s["paths"]["interactive_heatmap"],headers=headers)
     return Response(r.content,content_type=r.headers['Content-Type'])
 
 
@@ -1013,6 +1035,7 @@ def info():
     refresh_time=datetime.now()-cache['refresh_time']
     res="cache refreshed "+str(refresh_time.total_seconds())+" seconds ago."
     res=res+"cache size="+str(len(cache['scenes']))
+    res=res+str(cache['scenes'])
     return res
 @app.route('/clear-cache')
 def clearCache():
@@ -1181,7 +1204,10 @@ def heresphere_scene(scene_id):
         tags.append({"name":"Studio:"+s["studio"]["name"],"track":2,"start":0,"end":0,"rating":0})
 
     if s["interactive"]:
-        scene["scripts"]=[{"name": Path(s['path']).stem +'.funscript',"url": s["paths"]["funscript"],"rating":1}]
+        if 'ApiKey' in headers:
+            scene["scripts"] = [{"name": Path(s['path']).stem + '.funscript', "url": request.url_root+'script_proxy/'+s['id'], "rating": 1}]
+        else:
+            scene["scripts"]=[{"name": Path(s['path']).stem +'.funscript',"url": s["paths"]["funscript"],"rating":1}]
 
     scene["tags"]=tags
 
