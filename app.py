@@ -17,15 +17,8 @@ app = Flask(__name__)
 app.config['GRAPHQL_API'] = os.getenv('API_URL', 'http://localhost:9999/graphql')
 app.config['VERIFY_FLAG'] = not os.getenv('DISABLE_CERT_VERIFICATION', False)
 # Disable insecure certificate verification warning when cert validation is disabled
-if not app.config['VERIFY_FLAG']
+if not app.config['VERIFY_FLAG']:
     requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
-    
-if os.getenv('DEOVR_USERNAME') and os.getenv('DEOVR_PASSWORD')
-    app.config['BASIC_AUTH_USERNAME'] = os.getenv('DEOVR_USERNAME')
-    app.config['BASIC_AUTH_PASSWORD'] = os.getenv('DEOVR_PASSWORD')
-    # Setting this allows us to avoid flagging all endpoints as requiring the basic auth, so it can be conditional on
-    # whether the values are set.
-    app.config['BASIC_AUTH_FORCE'] = True
 
 app.secret_key = 'N46XYWbnaXG6JtdJZxez'
 
@@ -39,6 +32,9 @@ headers = {
 }
 if os.getenv('API_KEY'):
     headers['ApiKey']=os.getenv('API_KEY')
+# This header is not technically correct, but will work around a bug with stash https://github.com/stashapp/stash/issues/2764
+if app.config['GRAPHQL_API'].lower().startswith("https"):
+    headers["X-Forwarded-Proto"] = "https"
 
 studios=[]
 performers=[]
@@ -59,6 +55,7 @@ def __callGraphQL(query, variables=None):
         json['variables'] = variables
 
     # handle cookies
+    print(app.config['VERIFY_FLAG'])
     response = requests.post(app.config['GRAPHQL_API'], json=json, headers=headers, verify=app.config['VERIFY_FLAG'])
 
     if response.status_code == 200:
