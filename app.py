@@ -55,7 +55,6 @@ def __callGraphQL(query, variables=None):
         json['variables'] = variables
 
     # handle cookies
-    print(app.config['VERIFY_FLAG'])
     response = requests.post(app.config['GRAPHQL_API'], json=json, headers=headers, verify=app.config['VERIFY_FLAG'])
 
     if response.status_code == 200:
