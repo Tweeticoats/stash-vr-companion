@@ -921,7 +921,13 @@ def performer(performer_id):
         p['isPinned']=True
     else:
         p['isPinned' ] = False
-    return render_template('performer.html',performer=p,filters=filter())
+    scenes=[]
+    for s in cache["scenes"]:
+        if performer_id in [int(x["id"]) for x in s["performers"]]:
+            scenes.append(s)
+        print(str(s["performers"]))
+    print(scenes)
+    return render_template('performer.html',performer=p,filters=filter(),scenes=scenes)
 
 
 @app.route('/gizmovr/<string:filter_id>')
@@ -1068,13 +1074,22 @@ def refreshCache():
                 cache['scenes'][index]["paths"]["screenshot"] = '/image/' + str(s['id'])
                 modified = True
         else:
-            if s["updated_at"] != cache['image_cache'][s['id']]["updated"]:
+            if s['id'] in cache['image_cache']:
+                if s["updated_at"] != cache['image_cache'][s['id']]["updated"]:
+                    screenshot = s['paths']['screenshot']
+                    r = requests.get(screenshot, headers=headers)
+                    with open(os.path.join(image_dir, s['id']), "wb") as f:
+                        f.write(r.content)
+                        f.close()
+                        modified=True
+            else:
                 screenshot = s['paths']['screenshot']
                 r = requests.get(screenshot, headers=headers)
                 with open(os.path.join(image_dir, s['id']), "wb") as f:
                     f.write(r.content)
                     f.close()
                     modified=True
+
             cache['scenes'][index]["paths"]["screenshot"] = '/image/' + str(s['id'])
     if modified:
         save_index()

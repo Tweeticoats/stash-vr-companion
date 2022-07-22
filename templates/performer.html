@@ -10,9 +10,26 @@
         {% else %}
         Not Pinned
         {% endif %}
+ {% for scene in scenes %}
+  <div class="grid-item">
 
-    {% else %}
-    performer not found
+<a href="/scene/{{ scene['id'] }}">
+    <img src="{{ scene["paths"]["screenshot"] }}" width="200" height="150"/>
+    {%  if scene["interactive"] %}
+            <br/>
+        <img src="{{ scene["heatmap"] }}" width="200" height="20" />
+    {% endif %}
+    <p>{{ scene['title'] }}</p>
+
+</a>
+
+
+</div>
+
+{% endfor %}
+
+{% else %}
+performer not found
 
 {% endif%}
 {% endblock %}
