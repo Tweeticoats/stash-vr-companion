@@ -40,6 +40,7 @@ The folder /cache is used for an image cache, this can be stored in
 | `-e API_URL=http://192.168.0.22:9999/graphql` | Specify the stash instance to connect to                                                                      |
 | `-e API_KEY=xxxxxxxxx`                        | Specify the api key used to connect to stash if you have password protected your instance                     |
 | `-e CACHE_DIR=/cache/`                        | The directory used to cache images, defaults to /cache/ in the docker container and ./cache/ if not specified |
+| `-e DISABLE_CERT_VERIFICATION=True`           | Disable certificate verification when connecting to stash, for cases where https is used                      |
 
 ```
 docker stop stash-vr-companion

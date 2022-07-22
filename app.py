@@ -8,12 +8,17 @@ from threading import Timer
 from pathlib import Path
 from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
+from urllib3.exceptions import InsecureRequestWarning
 
 
 app = Flask(__name__)
 
 #app.config['SERVER_NAME'] = 'http://deovr.home'
 app.config['GRAPHQL_API'] = os.getenv('API_URL', 'http://localhost:9999/graphql')
+app.config['VERIFY_FLAG'] = not os.getenv('DISABLE_CERT_VERIFICATION', False)
+# Disable insecure certificate verification warning when cert validation is disabled
+if not app.config['VERIFY_FLAG']:
+    requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
 app.secret_key = 'N46XYWbnaXG6JtdJZxez'
 
@@ -27,6 +32,9 @@ headers = {
 }
 if os.getenv('API_KEY'):
     headers['ApiKey']=os.getenv('API_KEY')
+# This header is not technically correct, but will work around a bug with stash https://github.com/stashapp/stash/issues/2764
+if app.config['GRAPHQL_API'].lower().startswith("https"):
+    headers["X-Forwarded-Proto"] = "https"
 
 studios=[]
 performers=[]
@@ -47,7 +55,7 @@ def __callGraphQL(query, variables=None):
         json['variables'] = variables
 
     # handle cookies
-    response = requests.post(app.config['GRAPHQL_API'], json=json, headers=headers)
+    response = requests.post(app.config['GRAPHQL_API'], json=json, headers=headers, verify=app.config['VERIFY_FLAG'])
 
     if response.status_code == 200:
         result = response.json()
@@ -870,7 +878,7 @@ def image_proxy():
     scene_id = request.args.get('scene_id')
     session_id = request.args.get('session_id')
     url=app.config['GRAPHQL_API'][:-8]+'/scene/'+scene_id+'/screenshot?'+session_id
-    r = requests.get(url,headers=headers)
+    r = requests.get(url, headers=headers, verify=app.config['VERIFY_FLAG'])
     return Response(r.content,content_type=r.headers['Content-Type'])
 
 @app.route('/script_proxy/<int:scene_id>')
@@ -1059,7 +1067,7 @@ def refreshCache():
         if not os.path.exists(os.path.join(image_dir, s['id'])):
             print("fetching image: " + s['id'])
             screenshot = s['paths']['screenshot']
-            r = requests.get(screenshot, headers=headers)
+            r = requests.get(screenshot, headers=headers, verify=app.config['VERIFY_FLAG'])
             with open(os.path.join(image_dir, s['id']), "xb") as f:
                 f.write(r.content)
                 f.close()
@@ -1070,7 +1078,7 @@ def refreshCache():
         else:
             if s["updated_at"] != cache['image_cache'][s['id']]["updated"]:
                 screenshot = s['paths']['screenshot']
-                r = requests.get(screenshot, headers=headers)
+                r = requests.get(screenshot, headers=headers, verify=app.config['VERIFY_FLAG'])
                 with open(os.path.join(image_dir, s['id']), "wb") as f:
                     f.write(r.content)
                     f.close()
