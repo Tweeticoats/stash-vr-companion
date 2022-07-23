@@ -884,13 +884,13 @@ def image_proxy():
 @app.route('/script_proxy/<int:scene_id>')
 def script_proxy(scene_id):
     s = lookupScene(scene_id)
-    r = requests.get(s["paths"]["funscript"],headers=headers)
+    r = requests.get(s["paths"]["funscript"],headers=headers, verify=app.config['VERIFY_FLAG'])
     return Response(r.content,content_type=r.headers['Content-Type'])
 
 @app.route('/heatmap_proxy/<int:scene_id>')
 def heatmap_proxy(scene_id):
     s = lookupScene(scene_id)
-    r = requests.get(s["paths"]["interactive_heatmap"],headers=headers)
+    r = requests.get(s["paths"]["interactive_heatmap"],headers=headers, verify=app.config['VERIFY_FLAG'])
     return Response(r.content,content_type=r.headers['Content-Type'])
 
 
@@ -1085,7 +1085,7 @@ def refreshCache():
             if s['id'] in cache['image_cache']:
                 if s["updated_at"] != cache['image_cache'][s['id']]["updated"]:
                     screenshot = s['paths']['screenshot']
-                    r = requests.get(screenshot, headers=headers)
+                    r = requests.get(screenshot, headers=headers, verify=app.config['VERIFY_FLAG'])
                     with open(os.path.join(image_dir, s['id']), "wb") as f:
                         f.write(r.content)
                         f.close()
