@@ -9,9 +9,10 @@ from pathlib import Path
 from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
 from urllib3.exceptions import InsecureRequestWarning
-
+from flask_bcrypt import Bcrypt
 
 app = Flask(__name__)
+bcrypt = Bcrypt(app)
 
 #app.config['SERVER_NAME'] = 'http://deovr.home'
 app.config['GRAPHQL_API'] = os.getenv('API_URL', 'http://localhost:9999/graphql')
@@ -47,6 +48,7 @@ cache={"refresh_time":0,"scenes":[],"image_cache":{}}
 
 image_dir = os.getenv('CACHE_DIR', './cache')
 
+needs_auth=False
 
 def __callGraphQL(query, variables=None):
     json = {}
@@ -73,9 +75,9 @@ def get_scenes_with_tag( tag):
     tagID = findTagIdWithName(tag)
     return get_scenes({"tags": {"value": [tagID], "modifier": "INCLUDES_ALL"}})
 
-def get_scenes(scene_filter):
-    query = """query findScenes($scene_filter: SceneFilterType!) {
-findScenes(scene_filter: $scene_filter filter: {sort: "date",direction: DESC,per_page: -1} ) {
+def get_scenes(scene_filter, sort="updated_at",direction="DESC",per_page=100,page=1):
+    query = """query findScenes($scene_filter: SceneFilterType!, $filter: FindFilterType) {
+findScenes(scene_filter: $scene_filter filter: $filter ) {
 count
 scenes {
   id
@@ -183,14 +185,13 @@ tags{
 }
 }"""
 
-    variables = {"scene_filter": scene_filter}
+    variables = {"scene_filter": scene_filter,"filter":{"sort": sort,"direction": direction,"page":page,"per_page": per_page}}
     result = __callGraphQL(query, variables)
-    res= result["findScenes"]["scenes"]
-    for s in res:
+    for s in result["findScenes"]["scenes"]:
         scene_type(s)
 #        if 'ApiKey' in headers:
 #            rewrite_image_url(s)
-    return res
+    return result
 
 
 def lookupScene(id):
@@ -650,6 +651,20 @@ id
     result = __callGraphQL(query, variables)
     return result["tagCreate"]["id"]
 
+def getStashConfig():
+    query = """{
+  configuration{
+    general{
+      username
+      password
+    }
+  }
+}"""
+    result = __callGraphQL(query)
+    return result
+
+
+
 
 def filter():
     reload_filter_cache()
@@ -721,14 +736,44 @@ def setup():
         if t not in tags_cache.keys():
             print("creating tag " +t)
             createTagWithName(t)
+    if 'ApiKey' in headers:
+        cfg=getStashConfig()
+        config["username"]=cfg["configuration"]["general"]["username"]
+        config["password"]=cfg["configuration"]["general"]["password"]
+
+
+def isLoggedIn():
+    if 'ApiKey' in headers:
+        if 'username' in session:
+            return True
+        return False
+    return True
+
 
 
 
 @app.route('/deovr',methods=['GET', 'POST'])
 def deovr():
     data = {}
-    data["authorized"]="1"
+    if 'ApiKey' in headers:
+        if request.form:
+            if request.form['login']==config['username'] and bcrypt.check_password_hash(config['password'], request.form['password']):
+                data["authorized"] = "1"
+            else:
+                data["authorized"] = "-1"
+                data["scenes"] = [{"name": "Login required", "list": []}]
+                return jsonify(data)
+
+        else:
+            data["authorized"] = "-1"
+            data["scenes"] = [{"name":"Login required","list":[]}]
+            return jsonify(data)
+    else:
+         data["authorized"]="0"
     data["scenes"] = []
+
+
+
 
     all_scenes=None
     for f in filter():
@@ -753,7 +798,8 @@ def deovr():
 #                    4] + '&session_id=' + screenshot_url.split('/')[5][11:]
 #            else:
 #                r["thumbnailUrl"] = s["paths"]["screenshot"]
-            r["thumbnailUrl"] = request.url_root[:-1] +s["paths"]["screenshot"]
+#            r["thumbnailUrl"] = request.url_root[:-1] +s["paths"]["screenshot"]
+            r["thumbnailUrl"] = request.url_root[:-1] +s["image"]
 #            r["thumbnailUrl"] = '/image/' + s["id"]
             r["video_url"] = request.url_root + 'deovr/' + s["id"]
             res.append(r)
@@ -762,7 +808,7 @@ def deovr():
 
 
 
-@app.route('/deovr/<int:scene_id>')
+@app.route('/deovr/<int:scene_id>',methods=['GET', 'POST'])
 def show_post(scene_id):
     s = findScene(scene_id)
 
@@ -773,7 +819,8 @@ def show_post(scene_id):
     scene["description"] = s["details"]
 #    scene["thumbnailUrl"] = request.url_root +s["paths"]["screenshot"]
 #    scene["thumbnailUrl"] = '/image/' + s["id"]
-    scene["thumbnailUrl"] = request.url_root +'image/'+  s["id"]
+#    scene["thumbnailUrl"] = request.url_root +'image/'+  s["id"]
+    scene["thumbnailUrl"] = request.url_root[:-1] +s["image"]
     scene["videoPreview"] = s["paths"]["preview"]
     scene["isFavorite"] = False
     scene["isWatchlist"] = False
@@ -903,6 +950,9 @@ def index():
 #    return show_category(filter='Recent')
 @app.route('/filter/<string:filter_id>')
 def show_category(filter_id):
+    if not isLoggedIn():
+        return redirect("/login", code=302)
+
     session['mode']='deovr'
     tags=[]
     filters=filter()
@@ -919,11 +969,17 @@ def show_category(filter_id):
 
 @app.route('/scene/<int:scene_id>')
 def scene(scene_id):
+    if not isLoggedIn():
+        return redirect("/login", code=302)
+
     s = findScene(scene_id)
     return render_template('scene.html',scene=s,filters=filter())
 
 @app.route('/performer/<int:performer_id>')
 def performer(performer_id):
+    if not isLoggedIn():
+        return redirect("/login", code=302)
+
     p=findPerformerWithID(performer_id)
     if 'export_deovr' in [x["name"] for x in p["tags"]]:
         p['isPinned']=True
@@ -934,7 +990,7 @@ def performer(performer_id):
         if performer_id in [int(x["id"]) for x in s["performers"]]:
             scenes.append(s)
         print(str(s["performers"]))
-    print(scenes)
+#    print(scenes)
     return render_template('performer.html',performer=p,filters=filter(),scenes=scenes)
 
 
@@ -1048,8 +1104,12 @@ def stash_metadata():
 def info():
     refresh_time=datetime.now()-cache['refresh_time']
     res="cache refreshed "+str(refresh_time.total_seconds())+" seconds ago."
-    res=res+"cache size="+str(len(cache['scenes']))
+    res=res+"cache size="+str(len(cache['scenes']))+"<br/>"
+
+    res=res+str(cache['image_cache'])+"<br/>"
     res=res+str(cache['scenes'])
+
+    res=res+"is logged in:"+str(isLoggedIn())
     return res
 @app.route('/clear-cache')
 def clearCache():
@@ -1062,12 +1122,61 @@ def refreshCache():
     print("Cache currently contains",len(cache['scenes']))
     print("refreshing cache")
     reload_filter_cache()
-    scenes=get_scenes(scene_filter={"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}})
-
 
     cache['refresh_time']=datetime.now()
-    cache['scenes']=scenes
-    print("Cache currently contains",len(cache['scenes']))
+
+
+    if len(cache['scenes']) ==0:
+        scenes=[]
+        per_page=100
+        print("Fetching "+str(per_page)+" scenes")
+        res=get_scenes(scene_filter={"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}},sort="updated_at",direction="DESC",page=1,per_page=100)
+        scenes=res["findScenes"]["scenes"]
+        if res["findScenes"]["count"] > per_page:
+            for x in range (2,(res["findScenes"]["count"]//per_page +2)):
+                print("Fetching " + str(x*per_page) + " scenes")
+                res = get_scenes(scene_filter={
+                    "tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}},
+                                 sort="updated_at", direction="DESC", page=x, per_page=per_page)
+                scenes.extend(res["findScenes"]["scenes"])
+        cache['scenes']=scenes
+        if len(scenes)> 0:
+            cache['last_updated']=datetime.strptime(scenes[0]["updated_at"],"%Y-%m-%dT%H:%M:%SZ")
+        else:
+            cache['last_updated']=cache['refresh_time']
+    else:
+        #check the last updated scene
+        res=get_scenes(scene_filter={"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}},sort="updated_at",direction="DESC",page=1,per_page=1)
+        if res["findScenes"]["count"] > 0:
+            updated_at=datetime.strptime(res["findScenes"]["scenes"][0]["updated_at"],"%Y-%m-%dT%H:%M:%SZ")
+            if updated_at > cache['last_updated']:
+                print("Cache needs updating")
+                scenes = []
+                per_page = 100
+                print("Fetching " + str(per_page) + " scenes")
+                res = get_scenes(scene_filter={
+                    "tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}},
+                                 sort="updated_at", direction="DESC", page=1, per_page=100)
+                scenes = res["findScenes"]["scenes"]
+                if res["findScenes"]["count"] > per_page:
+                    for x in range(2, (res["findScenes"]["count"] // per_page + 2)):
+                        print("Fetching " + str(x * per_page) + " scenes")
+                        res = get_scenes(scene_filter={
+                            "tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}},
+                            sort="updated_at", direction="DESC", page=x, per_page=per_page)
+                        scenes.extend(res["findScenes"]["scenes"])
+                cache['scenes'] = scenes
+                if len(scenes) > 0:
+                    cache['last_updated'] = datetime.strptime(scenes[0]["updated_at"], "%Y-%m-%dT%H:%M:%SZ")
+                else:
+                    cache['last_updated'] = cache['refresh_time']
+            else:
+                print("Cache up to date")
+
+
+
+    print("Cache currently contains ",len(cache['scenes'])," scenes, checking image cache")
+
     modified=False
     for index, s in enumerate(cache['scenes']):
         if not os.path.exists(os.path.join(image_dir, s['id'])):
@@ -1079,28 +1188,43 @@ def refreshCache():
                 f.close()
                 cache['image_cache'][s['id']] = {"file": os.path.join(image_dir, s['id']),
                                                  "mime": r.headers['Content-Type'], "updated": s["updated_at"]}
-                cache['scenes'][index]["paths"]["screenshot"] = '/image/' + str(s['id'])
+#                cache['scenes'][index]["paths"]["screenshot"] = '/image/' + str(s['id'])
+                cache['scenes'][index]["image"] = '/image/' + str(s['id'])
                 modified = True
         else:
             if s['id'] in cache['image_cache']:
                 if s["updated_at"] != cache['image_cache'][s['id']]["updated"]:
+
                     screenshot = s['paths']['screenshot']
+                    print(screenshot)
+
                     r = requests.get(screenshot, headers=headers, verify=app.config['VERIFY_FLAG'])
                     with open(os.path.join(image_dir, s['id']), "wb") as f:
                         f.write(r.content)
                         f.close()
                         modified=True
+                    cache['scenes'][index]["image"] = '/image/' + str(s['id'])
+                    cache['image_cache'][s['id']]["updated"]=s["updated_at"]
+                else:
+                    cache['scenes'][index]["image"] = '/image/' + str(s['id'])
+                    cache['image_cache'][s['id']]["updated"]=s["updated_at"]
             else:
-                screenshot = s['paths']['screenshot']
-                r = requests.get(screenshot, headers=headers, verify=app.config['VERIFY_FLAG'])
+#                cache['scenes'][index]["image"] = '/image/' + str(s['id'])
+#                cache['image_cache'][s['id']]["updated"] = ["updated_at"]
+#                cache['scenes'][index]["paths"]["screenshot"] = '/image/' + str(s['id'])
+                r = requests.get(s['paths']['screenshot'], headers=headers, verify=app.config['VERIFY_FLAG'])
                 with open(os.path.join(image_dir, s['id']), "wb") as f:
                     f.write(r.content)
                     f.close()
                     modified=True
+                    print("Replacing image: "+s['paths']['screenshot'])
+                    cache['scenes'][index]["image"] = '/image/' + str(s['id'])
+                    cache['image_cache'][s['id']] = {"file": os.path.join(image_dir, s['id']),
+                                                     "mime": r.headers['Content-Type'], "updated": s["updated_at"]}
 
-            cache['scenes'][index]["paths"]["screenshot"] = '/image/' + str(s['id'])
     if modified:
         save_index()
+    print("Finished Cache Refresh")
 
 
 def setup_image_cache():
@@ -1131,7 +1255,17 @@ def images(scene_id):
 @app.route('/heresphere',methods=['GET', 'POST'])
 def heresphere():
     data = {}
-    data["access"]="1"
+
+    if 'ApiKey' in headers and request.method == 'POST':
+
+        if request.json['username']==config['username'] and bcrypt.check_password_hash(config['password'], request.json['password']):
+            data["access"] = "1"
+        else:
+            return jsonify({"access": "-1","library":[]}),{"HereSphere-JSON-Version":1}
+    else:
+        data["access"] = "0"
+
+
 #    data["banner"]={"image": "https://www.example.com/heresphere/banner.png","link":""}
     data["library"] = []
 
@@ -1143,9 +1277,36 @@ def heresphere():
             data["library"].append({"name": f['name'], "list": [request.url_root + 'heresphere/' + s["id"] for s in scenes]})
     return jsonify(data),{"HereSphere-JSON-Version":1}
 
+@app.route('/heresphere/auth',methods=['POST'])
+def heresphere_auth():
+    data = {}
+    if 'ApiKey' in headers and request.method == 'POST':
+
+        print("here: "+str(request.json)+request.json['username']+"-"+request.json['username'])
+        if request.json['username']==config['username'] and bcrypt.check_password_hash(config['password'], request.json['password']):
+            data["access"] = "1"
+            data["auth-token"]=headers['ApiKey']
+            print("Successful login")
+        else:
+            return jsonify({"access": "-1","library":[]}),{"HereSphere-JSON-Version":1}
+    return jsonify(data), {"HereSphere-JSON-Version": 1}
+
 
 @app.route('/heresphere/<int:scene_id>',methods=['GET', 'POST'])
 def heresphere_scene(scene_id):
+    scene = {}
+    if 'ApiKey' in headers and request.method == 'POST':
+
+        print("scene: "+str(request.json)+request.json['username']+"-"+request.json['username'])
+        if request.json['password']==headers['ApiKey']:
+            scene["access"] = "1"
+            print("Successful login")
+        else:
+            return jsonify({"access": "-1"}),{"HereSphere-JSON-Version":1}
+    else:
+        scene["access"] = "0"
+
+
     s=findScene(scene_id)
 
 #    content = request.get_json(silent=True)
@@ -1154,12 +1315,11 @@ def heresphere_scene(scene_id):
 #            updateScene(s)
 
 
-    scene = {}
+
 #    scene["id"] = s["id"]
     scene["title"] = s["title"]
-    scene["access"] = 1
     scene["description"] = s["details"]
-    scene["thumbnailImage"] = request.url_root +'image/'+  s["id"]
+    scene["thumbnailImage"] = request.url_root[:-1] +s["image"]
     scene["thumbnailVideo"] = s["paths"]["preview"]
     scene["dateReleased"]=s["date"]
     scene["dateAdded"] = s["date"]
@@ -1236,6 +1396,21 @@ def heresphere_scene(scene_id):
 
 
     return jsonify(scene),{"HereSphere-JSON-Version":1}
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        if request.form['username']==config['username']:
+            if bcrypt.check_password_hash(config['password'], request.form['password']):
+                session['username'] = request.form['username']
+                return redirect("/filter/Recent", code=302)
+    return render_template('login.html')
+
+@app.route('/logout', methods=['GET', 'POST'])
+def logout():
+    session.pop('username', None)
+    return redirect("/login", code=302)
 
 
 

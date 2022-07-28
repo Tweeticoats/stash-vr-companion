@@ -1,5 +1,5 @@
 # stash-vr-companion
-This is a companion web application to connect stash to deovr.
+This is a companion web application to connect stash to deovr and heresphere.
 
 Stash is a self hosted web application to manage your porn collection.
 Deovr is a VR video player avalable for most platforms.
@@ -18,11 +18,13 @@ Most VR scenes are 180° with the left and right eye side by side, apply the tag
 * **SPHERE** - 3D 360° projection used by some earlier videos
 * **FISHEYE** - Fish Eye lense projection
 * **MKX200** - 3D 200° projection used by SLR
+* **RF52** - 3d 190° projection used by SLR
 * **SBS** - Side by Side with the left eye taking up the left half of the video. This is the default for 3d video's.
 * **TB** - Up Down with the left eye taking up the top half of the video.
 
 ## Additional filter categories
 The default categories are Recent, 2D and VR. You can pin a studio and performers by adding a string to the studio description and a tag to the performer.
+Typically you will apply the tags "export_deovr", "FLAT" to a 2d scene or "export_deovr","DOME","SBS" for most 180° VR scenes.
 
 To pin a studio edit the studio in stash and add the string EXPORT_DEOVR to the description field for the studio.
 
@@ -35,12 +37,12 @@ Configuration is done by providing environment variables to the docker container
 The web server is running on port 5000 in the container.
 The folder /cache is used for an image cache, this can be stored in 
 
-| Parameter                                     | Function                                                                                                      |
-|:----------------------------------------------|---------------------------------------------------------------------------------------------------------------|
-| `-e API_URL=http://192.168.0.22:9999/graphql` | Specify the stash instance to connect to                                                                      |
-| `-e API_KEY=xxxxxxxxx`                        | Specify the api key used to connect to stash if you have password protected your instance                     |
-| `-e CACHE_DIR=/cache/`                        | The directory used to cache images, defaults to /cache/ in the docker container and ./cache/ if not specified |
-| `-e DISABLE_CERT_VERIFICATION=True`           | Disable certificate verification when connecting to stash, for cases where https is used                      |
+| Parameter                                     | Function                                                                                                                                                                                                 |
+|:----------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `-e API_URL=http://192.168.0.22:9999/graphql` | Specify the stash instance to connect to                                                                                                                                                                 |
+| `-e API_KEY=xxxxxxxxx`                        | Specify the api key used to connect to stash if you have password protected your instance. Note you will need to login to the web interface, deovr and heresphere with your stash username and password. |
+| `-e CACHE_DIR=/cache/`                        | The directory used to cache images, defaults to /cache/ in the docker container and ./cache/ if not specified                                                                                            |
+| `-e DISABLE_CERT_VERIFICATION=True`           | Disable certificate verification when connecting to stash, for cases where https is used                                                                                                                 |
 
 ```
 docker stop stash-vr-companion

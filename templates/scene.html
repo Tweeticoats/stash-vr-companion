@@ -2,7 +2,7 @@
 {% block content %}
 {% if scene%}
 <h1>{{ scene['title'] }}</h1>
-    <img src="{{ scene["paths"]["screenshot"] }}"/>
+    <img src="{{ scene["image"] }}"/>
     <br/>
     {%  if scene["interactive"] %}
         <img src="{{ scene["heatmap"] }}"/>
