@@ -528,6 +528,9 @@ def tag_cleanup_performer(scenes,filter):
             res.append(s)
     return res
 
+def sort_scenes_date(scenes):
+    return sorted(scenes,key=lambda x:x['date'] or '' ,reverse=True)
+
 
 
 def scene_type(scene):
@@ -783,10 +786,11 @@ def deovr():
 #            all_scenes = get_scenes(f['filter'])
 
 #        scenes = all_scenes
-        scenes=cache['scenes']
+        scenes=sort_scenes_date(cache['scenes'])
         if 'post' in f:
             var=f['post']
             scenes=var(scenes,f)
+
 
         for s in scenes:
             r = {}
@@ -959,7 +963,7 @@ def show_category(filter_id):
     for f in filters:
         if filter_id == f['name']:
 #            scenes = get_scenes(f['filter'])
-            scenes=cache['scenes']
+            scenes=sort_scenes_date(cache['scenes'])
             if 'post' in f:
                 var=f['post']
                 scenes=var(scenes,f)
@@ -1149,7 +1153,7 @@ def refreshCache():
         res=get_scenes(scene_filter={"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}},sort="updated_at",direction="DESC",page=1,per_page=1)
         if res["findScenes"]["count"] > 0:
             updated_at=datetime.strptime(res["findScenes"]["scenes"][0]["updated_at"],"%Y-%m-%dT%H:%M:%SZ")
-            if updated_at > cache['last_updated']:
+            if updated_at > cache['last_updated'] or len(cache["scenes"]) != res["findScenes"]["count"]:
                 print("Cache needs updating")
                 scenes = []
                 per_page = 100
@@ -1260,6 +1264,11 @@ def heresphere():
 
         if request.json['username']==config['username'] and bcrypt.check_password_hash(config['password'], request.json['password']):
             data["access"] = "1"
+        elif 'Auth-Token' in request.headers:
+            if request.headers['Auth-Token']==headers['ApiKey']:
+                data["access"]=1
+            else:
+                return jsonify({"access": "-1", "library": []}), {"HereSphere-JSON-Version": 1}
         else:
             return jsonify({"access": "-1","library":[]}),{"HereSphere-JSON-Version":1}
     else:
@@ -1271,10 +1280,11 @@ def heresphere():
 
     all_scenes=None
     for f in filter():
+        scenes=sort_scenes_date(cache['scenes'])
         if 'post' in f:
             var=f['post']
             scenes=var(cache['scenes'],f)
-            data["library"].append({"name": f['name'], "list": [request.url_root + 'heresphere/' + s["id"] for s in scenes]})
+        data["library"].append({"name": f['name'], "list": [request.url_root + 'heresphere/' + s["id"] for s in scenes]})
     return jsonify(data),{"HereSphere-JSON-Version":1}
 
 @app.route('/heresphere/auth',methods=['POST'])
@@ -1301,6 +1311,11 @@ def heresphere_scene(scene_id):
         if request.json['password']==headers['ApiKey']:
             scene["access"] = "1"
             print("Successful login")
+        elif 'Auth-Token' in request.headers:
+            if request.headers['Auth-Token']==headers['ApiKey']:
+                scene["access"] = "1"
+            else:
+                return jsonify({"access": "-1"}), {"HereSphere-JSON-Version": 1}
         else:
             return jsonify({"access": "-1"}),{"HereSphere-JSON-Version":1}
     else:
