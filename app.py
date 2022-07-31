@@ -1145,7 +1145,7 @@ def refreshCache():
                 scenes.extend(res["findScenes"]["scenes"])
         cache['scenes']=scenes
         if len(scenes)> 0:
-            cache['last_updated']=datetime.fromisoformat(res["findScenes"]["scenes"][0]["updated_at"])
+            cache['last_updated']=datetime.fromisoformat(scenes[0]["updated_at"].replace("Z",""))
         else:
             cache['last_updated']=cache['refresh_time']
     else:
