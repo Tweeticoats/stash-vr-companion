@@ -1145,14 +1145,14 @@ def refreshCache():
                 scenes.extend(res["findScenes"]["scenes"])
         cache['scenes']=scenes
         if len(scenes)> 0:
-            cache['last_updated']=datetime.strptime(scenes[0]["updated_at"],"%Y-%m-%dT%H:%M:%SZ")
+            cache['last_updated']=datetime.fromisoformat(res["findScenes"]["scenes"][0]["updated_at"])
         else:
             cache['last_updated']=cache['refresh_time']
     else:
         #check the last updated scene
         res=get_scenes(scene_filter={"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}},sort="updated_at",direction="DESC",page=1,per_page=1)
         if res["findScenes"]["count"] > 0:
-            updated_at=datetime.strptime(res["findScenes"]["scenes"][0]["updated_at"],"%Y-%m-%dT%H:%M:%SZ")
+            updated_at=datetime.fromisoformat(res["findScenes"]["scenes"][0]["updated_at"])
             if updated_at > cache['last_updated'] or len(cache["scenes"]) != res["findScenes"]["count"]:
                 print("Cache needs updating")
                 scenes = []
@@ -1170,10 +1170,7 @@ def refreshCache():
                             sort="updated_at", direction="DESC", page=x, per_page=per_page)
                         scenes.extend(res["findScenes"]["scenes"])
                 cache['scenes'] = scenes
-                if len(scenes) > 0:
-                    cache['last_updated'] = datetime.strptime(scenes[0]["updated_at"], "%Y-%m-%dT%H:%M:%SZ")
-                else:
-                    cache['last_updated'] = cache['refresh_time']
+                cache['last_updated'] = updated_at
             else:
                 print("Cache up to date")
 
