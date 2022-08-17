@@ -13,7 +13,11 @@
 {%  endif %}
 
 
-
+{% if filter['enabled'] %}
+    Filter is <b>Enabled</b>, <a href="/filter/{{ filter['name'] }}?enable=False">Disable filter</a>
+{% else %}
+        Filter is <b>Disabled</b>, <a href="/filter/{{ filter['name'] }}?enable=True">Enable filter</a>
+{%  endif %}
 
 
 

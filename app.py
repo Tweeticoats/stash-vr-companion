@@ -47,8 +47,129 @@ cache_refresh_time=None
 cache={"refresh_time":0,"scenes":[],"image_cache":{}}
 
 image_dir = os.getenv('CACHE_DIR', './cache')
+auth={}
 
 needs_auth=False
+
+
+def tag_cleanup(scenes,filter):
+    res=[]
+    for s in scenes:
+        if filter['id'] in [x['id']  for x in s['tags']]:
+            res.append(s)
+    return res
+
+def tag_cleanup_3d(scenes,filter):
+    res=[]
+    for s in scenes:
+        if s["is3d"]:
+            res.append(s)
+    return res
+
+def tag_cleanup_2d(scenes,filter):
+    res=[]
+    for s in scenes:
+        if not s["is3d"]:
+            res.append(s)
+    return res
+
+
+def tag_cleanup_star(scenes,filter):
+    res=[]
+    for s in scenes:
+        if s["rating"]==5:
+            res.append(s)
+    return res
+
+def tag_cleanup_interactive(scenes,filter):
+    res=[]
+    for s in scenes:
+        if s["interactive"]:
+            res.append(s)
+    return res
+
+
+
+def tag_cleanup_random(scenes,filter):
+    if len(scenes) > 30:
+        return random.sample(scenes,30)
+    return scenes
+
+def tag_cleanup_studio(scenes,filter):
+    res=[]
+    for s in scenes:
+        if s["studio"] is not None and 'id' in s['studio']:
+            if filter['studio_id'] == s['studio']['id']:
+                res.append(s)
+    return res
+
+def tag_cleanup_performer(scenes,filter):
+    res=[]
+    for s in scenes:
+        if filter['performer_id'] in [x['id'] for x in s['performers']]:
+            res.append(s)
+    return res
+
+def sort_scenes_date(scenes):
+    return sorted(scenes,key=lambda x:x['date'] or '' ,reverse=True)
+
+def sort_scenes_updated_at(scenes):
+    return sorted(scenes,key=lambda x:x['updated_at'] or '' ,reverse=True)
+
+def sort_scenes_created_at(scenes):
+    return sorted(scenes,key=lambda x:x['created_at'] or '' ,reverse=True)
+
+def sort_scenes_title(scenes):
+    return sorted(scenes,key=lambda x:x['title'] or '' ,reverse=True)
+
+def sort_scenes_random(scenes):
+    return random.sample(scenes)
+
+sort_methods=[
+    {'name':'date','method':sort_scenes_date},
+    {'name': 'updated_at', 'method': sort_scenes_updated_at},
+    {'name': 'created_at', 'method': sort_scenes_updated_at},
+    {'name': 'title', 'method': sort_scenes_updated_at},
+    {'name': 'random', 'method': sort_scenes_random}]
+
+default_filters=[
+    {'name':'Recent',
+     'type':'BUILTIN',
+     'sort':sort_scenes_date,
+     'enabled':True
+     },
+    {
+        'name':'VR',
+        'type': 'BUILTIN',
+        'post': tag_cleanup_3d,
+        'sort': sort_scenes_date,
+        'enabled':True
+    },
+    {
+        'name': '2D',
+        'type': 'BUILTIN',
+        'post': tag_cleanup_2d,
+        'sort': sort_scenes_date,
+        'enabled':True
+    },
+    {
+        'name': 'Random',
+        'type': 'BUILTIN',
+        'post': tag_cleanup_random,
+        'sort':None,
+        'enabled':True
+    },
+    {
+        'name': 'Interactive',
+        'type': 'BUILTIN',
+        'post': tag_cleanup_interactive,
+        'sort': sort_scenes_date,
+        'enabled':True
+    }]
+
+
+
+
 
 def __callGraphQL(query, variables=None):
     json = {}
@@ -413,6 +534,7 @@ def reload_filter_studios():
     }"""
     result = __callGraphQL(query)
     res=[]
+    studios =result["allStudios"]
     for s in result["allStudios"]:
         if s['details'] is not None and 'EXPORT_DEOVR' in s['details']:
             if s['name'] not in studios:
@@ -426,8 +548,6 @@ def reload_filter_studios():
                 studio_fiter['filter'] = {"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
                 studio_fiter['post']=tag_cleanup_studio
                 res.append(studio_fiter)
-        if s['name']=='vr-companion-config':
-            config=json.loads(s['details'])
     return res
 
 def reload_filter_performer():
@@ -469,67 +589,6 @@ def reload_filter_tag():
         tags_filter['post']=tag_cleanup
         res.append(tags_filter)
     return res
-
-def tag_cleanup(scenes,filter):
-    res=[]
-    for s in scenes:
-        if filter['id'] in [x['id']  for x in s['tags']]:
-            res.append(s)
-    return res
-
-def tag_cleanup_3d(scenes,filter):
-    res=[]
-    for s in scenes:
-        if s["is3d"]:
-            res.append(s)
-    return res
-
-def tag_cleanup_2d(scenes,filter):
-    res=[]
-    for s in scenes:
-        if not s["is3d"]:
-            res.append(s)
-    return res
-
-
-def tag_cleanup_star(scenes,filter):
-    res=[]
-    for s in scenes:
-        if s["rating"]==5:
-            res.append(s)
-    return res
-
-def tag_cleanup_interactive(scenes,filter):
-    res=[]
-    for s in scenes:
-        if s["interactive"]:
-            res.append(s)
-    return res
-
-
-
-def tag_cleanup_random(scenes,filter):
-    if len(scenes) > 30:
-        return random.sample(scenes,30)
-    return scenes
-
-def tag_cleanup_studio(scenes,filter):
-    res=[]
-    for s in scenes:
-        if s["studio"] is not None and 'id' in s['studio']:
-            if filter['studio_id'] == s['studio']['id']:
-                res.append(s)
-    return res
-
-def tag_cleanup_performer(scenes,filter):
-    res=[]
-    for s in scenes:
-        if filter['performer_id'] in [x['id'] for x in s['performers']]:
-            res.append(s)
-    return res
-
-def sort_scenes_date(scenes):
-    return sorted(scenes,key=lambda x:x['date'] or '' ,reverse=True)
 
 
 
@@ -667,6 +726,25 @@ def getStashConfig():
     return result
 
 
+def createStudio(input):
+    query="""mutation studioCreate($input: StudioCreateInput!) {
+studioCreate(input: $input) {
+id
+name
+}
+}"""
+    variables = {'input': input}
+    result = __callGraphQL(query, variables)
+
+def updateStudio(input):
+    query="""mutation studioCreate($input: StudioCreateInput!) {
+studioCreate(input: $input) {
+id
+name
+}
+}"""
+    variables = {'input': input}
+    result = __callGraphQL(query, variables)
 
 
 def filter():
@@ -690,6 +768,7 @@ def filter():
     flat_filter['post']=tag_cleanup_2d
     flat_filter['type'] = 'BUILTIN'
 
+
     star_filter={}
     star_filter['name']='5 Star'
 #    star_filter['filter'] = {"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"},"rating": {"modifier": "EQUALS","value": 5}}
@@ -712,6 +791,17 @@ def filter():
     interactive_filter['type'] = 'BUILTIN'
 
     filter=[recent_filter,vr_filter,flat_filter,star_filter,random_filter,interactive_filter]
+    for f in filter:
+        if 'enabled_filters' not in config:
+            config['enabled_filters']=[]
+        if 'disabled_filters' not in config:
+            config['disabled_filters']=[]
+        if f['name'] in config['enabled_filters']:
+            f['enabled']=True
+        elif f['name'] in config['disabled_filters']:
+            f['enabled'] = False
+        else:
+            f['enabled'] = True
 
     for f in reload_filter_studios():
         filter.append(f)
@@ -741,8 +831,10 @@ def setup():
             createTagWithName(t)
     if 'ApiKey' in headers:
         cfg=getStashConfig()
-        config["username"]=cfg["configuration"]["general"]["username"]
-        config["password"]=cfg["configuration"]["general"]["password"]
+        auth['username']=cfg["configuration"]["general"]["username"]
+        auth['password']=cfg["configuration"]["general"]["password"]
+    reload_filter_studios()
+
 
 
 def isLoggedIn():
@@ -760,7 +852,7 @@ def deovr():
     data = {}
     if 'ApiKey' in headers:
         if request.form:
-            if request.form['login']==config['username'] and bcrypt.check_password_hash(config['password'], request.form['password']):
+            if request.form['login']==auth['username'] and bcrypt.check_password_hash(auth['password'], request.form['password']):
                 data["authorized"] = "1"
             else:
                 data["authorized"] = "-1"
@@ -952,10 +1044,25 @@ def index():
 #    scenes = get_scenes_with_tag("export_deovr")
 #    return render_template('index.html',filters=filter(),filter='Recent',scenes=scenes)
 #    return show_category(filter='Recent')
-@app.route('/filter/<string:filter_id>')
+@app.route('/filter/<string:filter_id>',methods=['GET', 'POST'])
 def show_category(filter_id):
     if not isLoggedIn():
         return redirect("/login", code=302)
+
+    if 'enable' in request.args:
+        if request.args.get('enable')=='True':
+            if 'enabled_filters' in config:
+                config['enabled_filters']=[]
+            config['enabled_filters'].append(filter_id)
+            saveConfig()
+        elif request.args.get('enable')=='False':
+            print("Disabling filter?")
+            if 'disabled_filters' in config:
+                config['disabled_filters']=[]
+            config['disabled_filters'].append(filter_id)
+        saveConfig()
+
+
 
     session['mode']='deovr'
     tags=[]
@@ -1111,7 +1218,8 @@ def info():
     res=res+"cache size="+str(len(cache['scenes']))+"<br/>"
 
     res=res+str(cache['image_cache'])+"<br/>"
-    res=res+str(cache['scenes'])
+    res=res+str(cache['scenes'])+'<br/>'
+    res=res+str(config)
 
     res=res+"is logged in:"+str(isLoggedIn())
     return res
@@ -1242,6 +1350,17 @@ def save_index():
         json.dump(cache['image_cache'], f)
         print("saved cache index")
 
+
+def saveConfig():
+    print('Saving config: '+str(config))
+    if 'config_studio' in config:
+        input = {"id":config['config_studio'],"name": "vr-companion-config", "details":json.dumps(config)}
+        updateStudio(input)
+    else:
+        input = {"name": "vr-companion-config","details":json.dumps(config)}
+        res=createStudio(input)
+#        config['config_studio']=res['id']
+
 @app.route('/image/<int:scene_id>')
 def images(scene_id):
     if str(scene_id) in cache['image_cache']:
@@ -1259,7 +1378,7 @@ def heresphere():
 
     if 'ApiKey' in headers and request.method == 'POST':
 
-        if request.json['username']==config['username'] and bcrypt.check_password_hash(config['password'], request.json['password']):
+        if request.json['username']==auth['username'] and bcrypt.check_password_hash(auth['password'], request.json['password']):
             data["access"] = "1"
         elif 'Auth-Token' in request.headers:
             if request.headers['Auth-Token']==headers['ApiKey']:
@@ -1290,7 +1409,7 @@ def heresphere_auth():
     if 'ApiKey' in headers and request.method == 'POST':
 
         print("here: "+str(request.json)+request.json['username']+"-"+request.json['username'])
-        if request.json['username']==config['username'] and bcrypt.check_password_hash(config['password'], request.json['password']):
+        if request.json['username']==auth['username'] and bcrypt.check_password_hash(auth['password'], request.json['password']):
             data["access"] = "1"
             data["auth-token"]=headers['ApiKey']
             print("Successful login")
@@ -1324,7 +1443,7 @@ def heresphere_scene(scene_id):
 #    content = request.get_json(silent=True)
 #    if content:
 #        if "isFavorite" in content:
-#            updateScene(s)
+#            cene(s)
 
 
 
@@ -1413,8 +1532,9 @@ def heresphere_scene(scene_id):
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        if request.form['username']==config['username']:
-            if bcrypt.check_password_hash(config['password'], request.form['password']):
+        print(request.form['username'] + auth['username'])
+        if request.form['username']==auth['username']:
+            if bcrypt.check_password_hash(auth['password'], request.form['password']):
                 session['username'] = request.form['username']
                 return redirect("/filter/Recent", code=302)
     return render_template('login.html')
@@ -1423,6 +1543,9 @@ def login():
 def logout():
     session.pop('username', None)
     return redirect("/login", code=302)
+
+
+
 
 
 
