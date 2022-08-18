@@ -1077,7 +1077,7 @@ def show_category(filter_id):
     if 'sort_name' in request.form:
         sort_name=request.form['sort_name']
         f['sort_name']=sort_name
-        f['sort']=sort_methods[sort_name]
+#        f['sort']=sort_methods[sort_name]
         print(f)
         saveConfig()
 
@@ -1092,8 +1092,6 @@ def show_category(filter_id):
         filter_func=filter_methods[f['filter_name']]
         sort_func=sort_methods[f['sort_name']]
 
-
-#scenes = filter_func(scenes, f)
         scenes=sort_func(filter_func(cache['scenes'],f))
 #        print(f)
 #            var=f['sort']
@@ -1137,10 +1135,15 @@ def gizmovr_category(filter_id):
     filters=config['filters']
     for f in filters:
         if filter_id == f['name']:
-            scenes = get_scenes(f['filter'])
-            if 'post' in f:
-                var=f['post']
-                scenes=var(scenes,f)
+#            scenes = get_scenes(f['filter'])
+#            if 'post' in f:
+#                var=f['post']
+#                scenes=var(scenes,f)
+            filter_func = filter_methods[f['filter_name']]
+            sort_func = sort_methods[f['sort_name']]
+
+            scenes = sort_func(filter_func(cache['scenes'], f))
+
             session['filter']=f['name']
             base_path=request.base_url[:-len(request.path)]
             return render_template('gizmovr.html',filters=filters,filter=f,scenes=scenes,isGizmovr=True,base_path=base_path)
