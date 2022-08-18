@@ -13,10 +13,18 @@
 
 {% for f in filters %}
 {% if f['name'] == session['filter'] %}
+    {% if f['enabled']%}
     <b>{{ f['name'] }}</b>
+        {% else %}
+        <strike><b>{{ f['name'] }}</b></strike>
+    {% endif %}
 {% else %}
     {% if session['mode']=='deovr' %}
+            {% if f['enabled']%}
 <a href="/filter/{{ f['name'] }}">{{ f['name'] }}</a>
+                {% else %}
+                <strike><a href="/filter/{{ f['name'] }}">{{ f['name'] }}</a></strike>
+                   {% endif %}
     {% else %}
 <a href="/gizmovr/{{ f['name'] }}">{{ f['name'] }}</a>
     {% endif %}

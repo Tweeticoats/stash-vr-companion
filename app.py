@@ -51,6 +51,8 @@ auth={}
 
 needs_auth=False
 
+def filter_studio(scenes,filter):
+    return scenes
 
 def tag_cleanup(scenes,filter):
     res=[]
@@ -125,17 +127,28 @@ def sort_scenes_title(scenes):
 def sort_scenes_random(scenes):
     return random.sample(scenes)
 
-sort_methods=[
-    {'name':'date','method':sort_scenes_date},
-    {'name': 'updated_at', 'method': sort_scenes_updated_at},
-    {'name': 'created_at', 'method': sort_scenes_updated_at},
-    {'name': 'title', 'method': sort_scenes_updated_at},
-    {'name': 'random', 'method': sort_scenes_random}]
+sort_methods= {'date':sort_scenes_date,
+    'updated_at': sort_scenes_updated_at,
+    'created_at': sort_scenes_updated_at,
+    'title': sort_scenes_updated_at,
+    'random': sort_scenes_random}
+
+filter_methods= {'default':filter_studio,
+    'tag':tag_cleanup,
+    '2d': tag_cleanup_2d,
+    '3d': tag_cleanup_3d,
+    'star': tag_cleanup_star,
+    'interactive': tag_cleanup_interactive,
+    'studio': tag_cleanup_studio,
+    'performer': tag_cleanup_performer,
+    'random': tag_cleanup_random}
 
 default_filters=[
     {'name':'Recent',
      'type':'BUILTIN',
      'sort':sort_scenes_date,
+     'filter_name':'default',
+     'sort_name':'date',
      'enabled':True
      },
     {
@@ -143,6 +156,8 @@ default_filters=[
         'type': 'BUILTIN',
         'post': tag_cleanup_3d,
         'sort': sort_scenes_date,
+        'filter_name':'3d',
+        'sort_name': 'date',
         'enabled':True
     },
     {
@@ -150,13 +165,17 @@ default_filters=[
         'type': 'BUILTIN',
         'post': tag_cleanup_2d,
         'sort': sort_scenes_date,
+        'filter_name': '2d',
+        'sort_name': 'date',
         'enabled':True
     },
     {
         'name': 'Random',
         'type': 'BUILTIN',
         'post': tag_cleanup_random,
-        'sort':None,
+        'sort':sort_scenes_random,
+        'filter_name': 'random',
+        'sort_name': 'random',
         'enabled':True
     },
     {
@@ -164,6 +183,8 @@ default_filters=[
         'type': 'BUILTIN',
         'post': tag_cleanup_interactive,
         'sort': sort_scenes_date,
+        'filter_name': 'interactive',
+        'sort_name': 'date',
         'enabled':True
     }]
 
@@ -524,7 +545,7 @@ def findStudioIdWithName(name):
     return None
 
 
-def reload_filter_studios():
+def reload_studios():
     query = """query {
       allStudios {
         id
@@ -534,10 +555,16 @@ def reload_filter_studios():
     }"""
     result = __callGraphQL(query)
     res=[]
-    studios =result["allStudios"]
+    studios.clear()
     for s in result["allStudios"]:
+        studios.append(s)
+
+def reload_filter_studios():
+    reload_studios()
+    for s in studios:
         if s['details'] is not None and 'EXPORT_DEOVR' in s['details']:
-            if s['name'] not in studios:
+            if s['name'] not in [x['name'] for x in config['filters']]:
+#            if s['name'] not in studios:
                 studio_fiter={}
                 studio_fiter['name']=s['name']
                 studio_fiter['type']='STUDIO'
@@ -545,10 +572,19 @@ def reload_filter_studios():
 #                studio_fiter['filter']={
 #                    "tags": {"depth": 0, "modifier": "INCLUDES_ALL", "value": [tags_cache['export_deovr']['id']]},
 #                    "studios": {"depth": 3, "modifier": "INCLUDES_ALL", "value": [s['id']]}}
-                studio_fiter['filter'] = {"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
+#                studio_fiter['filter'] = {"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
                 studio_fiter['post']=tag_cleanup_studio
-                res.append(studio_fiter)
-    return res
+                studio_fiter['filter_name'] = 'studio'
+                studio_fiter['sort_name'] = 'date'
+                studio_fiter['enabled'] = True
+                config['filters'].append(studio_fiter)
+#                res.append(studio_fiter)
+        else:
+            #check if the filter used to have the export_deovr tag but no longer does and remove it
+            for f in config['filters']:
+                if f['type'] == 'studio' and f['id'] == s['id']:
+                    config['filters'].remove(f)
+
 
 def reload_filter_performer():
     query = """{
@@ -563,32 +599,50 @@ def reload_filter_performer():
     result = __callGraphQL(query)
     res=[]
     for p in result["allPerformers"]:
-        for tag in p['tags']:
-            if tag["name"] == 'export_deovr':
-                if p['name'] not in performers:
-                    performer_filter = {}
-                    performer_filter['name'] = p['name']
-                    performer_filter['type'] = 'PERFORMER'
-                    performer_filter['performer_id']=p['id']
+        if p['name'] in [x['name'] for x in config['filters']]:
+            if 'export_deovr' not in [x['name'] for x in p['tags']]:
+            # Performer tag used to exist but no longer
+                for f in config['filters']:
+                    if f['type']=='PERFORMER' and f['id']==p['id']:
+                        config['filters'].remove(f)
+        else:
+            if 'export_deovr' in [x['name'] for x in p['tags']]:
+
+#        for tag in p['tags']:
+#            if tag["name"] == 'export_deovr':
+#                if p['name'] not in performers:
+                performer_filter = {}
+                performer_filter['name'] = p['name']
+                performer_filter['type'] = 'PERFORMER'
+                performer_filter['performer_id']=p['id']
 #                    performer_filter['filter'] = {"tags": {"depth": 0, "modifier": "INCLUDES_ALL", "value": [tags_cache['export_deovr']['id']]},
 #                                     "performers": {"modifier": "INCLUDES_ALL", "value": [p["id"]]}}
 #                    tag_cleanup_performer
-                    performer_filter['filter'] = {"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
-                    performer_filter['post'] = tag_cleanup_performer
-                    res.append(performer_filter)
+#                performer_filter['filter'] = {"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
+                performer_filter['post'] = tag_cleanup_performer
+                performer_filter['filter_name']='performer'
+                performer_filter['sort_name']='date'
+                performer_filter['enabled']=True
+                config['filters'].append(performer_filter)
+#                    res.append(performer_filter)
     return res
 
 def reload_filter_tag():
     res=[]
     for f in tags_cache['export_deovr']['children']:
-        tags_filter={}
-        tags_filter['name']=f['name']
-        tags_filter['type']='TAG'
-        tags_filter['id']=f['id']
-        tags_filter['filter']= {"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
-        tags_filter['post']=tag_cleanup
-        res.append(tags_filter)
-    return res
+        if f['name'] not in [x['name'] for x in config['filters']]:
+            tags_filter={}
+            tags_filter['name']=f['name']
+            tags_filter['type']='TAG'
+            tags_filter['id']=f['id']
+    #        tags_filter['filter']= {"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
+            tags_filter['post']=tag_cleanup
+            tags_filter['enabled']=True
+            tags_filter['filter_name'] = 'tag'
+            tags_filter['sort_name'] = 'date'
+
+#        res.append(tags_filter)
+#    return res
 
 
 
@@ -737,8 +791,8 @@ name
     result = __callGraphQL(query, variables)
 
 def updateStudio(input):
-    query="""mutation studioCreate($input: StudioCreateInput!) {
-studioCreate(input: $input) {
+    query="""mutation studioUpdate($input: StudioUpdateInput!) {
+studioUpdate(input: $input) {
 id
 name
 }
@@ -749,60 +803,7 @@ name
 
 def filter():
     reload_filter_cache()
-
-    recent_filter={}
-    recent_filter['name']='Recent'
-    recent_filter['filter'] = {"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
-    recent_filter['type']='BUILTIN'
-
-    vr_filter ={}
-    vr_filter['name']='VR'
-    vr_filter['filter']={"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
-    vr_filter['post']=tag_cleanup_3d
-    vr_filter['type'] = 'BUILTIN'
-
-    flat_filter={}
-    flat_filter['name']='2D'
-#    flat_filter['filter'] = {"tags": {"value": [tags_cache['export_deovr']['id'],tags_cache['FLAT']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
-    flat_filter['filter']={"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
-    flat_filter['post']=tag_cleanup_2d
-    flat_filter['type'] = 'BUILTIN'
-
-
-    star_filter={}
-    star_filter['name']='5 Star'
-#    star_filter['filter'] = {"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"},"rating": {"modifier": "EQUALS","value": 5}}
-    star_filter['filter']={"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
-    star_filter['post']=tag_cleanup_star
-    star_filter['type'] = 'BUILTIN'
-
-    random_filter = {}
-    random_filter['name'] = 'Random'
-    random_filter['filter'] = {
-        "tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
-    random_filter['post'] = tag_cleanup_random
-    random_filter['type'] = 'BUILTIN'
-
-    interactive_filter = {}
-    interactive_filter['name'] = 'Interactive'
-    interactive_filter['filter'] = {
-        "tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
-    interactive_filter['post'] = tag_cleanup_interactive
-    interactive_filter['type'] = 'BUILTIN'
-
-    filter=[recent_filter,vr_filter,flat_filter,star_filter,random_filter,interactive_filter]
-    for f in filter:
-        if 'enabled_filters' not in config:
-            config['enabled_filters']=[]
-        if 'disabled_filters' not in config:
-            config['disabled_filters']=[]
-        if f['name'] in config['enabled_filters']:
-            f['enabled']=True
-        elif f['name'] in config['disabled_filters']:
-            f['enabled'] = False
-        else:
-            f['enabled'] = True
-
+    filter=config['filters'].copy()
     for f in reload_filter_studios():
         filter.append(f)
     for f in reload_filter_performer():
@@ -833,8 +834,21 @@ def setup():
         cfg=getStashConfig()
         auth['username']=cfg["configuration"]["general"]["username"]
         auth['password']=cfg["configuration"]["general"]["password"]
-    reload_filter_studios()
+    reload_studios()
+    print(str(studios))
+    for s in studios:
+        if s['name']=='vr-companion-config':
+            config['config_studio']=int(s['id'])
+            if len(s['details']) > 0:
+                print("Loading config from stash: "+s['details'])
+                config.update(json.loads(s['details']))
+                for f in config['filters']:
+                    f['post']=filter_methods[f['filter_name']]
+                    f['sort']=sort_methods[f['sort_name']]
+                print('final config:' +str(config))
 
+    if 'filters' not in config:
+        config['filters'] = default_filters
 
 
 def isLoggedIn():
@@ -845,6 +859,11 @@ def isLoggedIn():
     return True
 
 
+def getFilter(filter_id):
+    for f in config['filters']:
+        if f['name']==filter_id:
+            return f
+    return None
 
 
 @app.route('/deovr',methods=['GET', 'POST'])
@@ -871,35 +890,36 @@ def deovr():
 
 
     all_scenes=None
-    for f in filter():
-        res=[]
-#        scenes = get_scenes(f['filter'])
-#        if all_scenes is None:
-#            all_scenes = get_scenes(f['filter'])
+    for f in config['filters']:
+        if f['enabled']:
+            res=[]
+    #        scenes = get_scenes(f['filter'])
+    #        if all_scenes is None:
+    #            all_scenes = get_scenes(f['filter'])
 
-#        scenes = all_scenes
-        scenes=sort_scenes_date(cache['scenes'])
-        if 'post' in f:
-            var=f['post']
-            scenes=var(scenes,f)
+    #        scenes = all_scenes
+            scenes=sort_scenes_date(cache['scenes'])
+            if 'post' in f:
+                var=f['post']
+                scenes=var(scenes,f)
 
 
-        for s in scenes:
-            r = {}
-            r["title"] = s["title"]
-            r["videoLength"] = int(s["file"]["duration"])
-#            if 'ApiKey' in headers:
-#                screenshot_url = s["paths"]["screenshot"]
-#                r["thumbnailUrl"] = request.base_url[:-6] + '/image_proxy?scene_id=' + screenshot_url.split('/')[
-#                    4] + '&session_id=' + screenshot_url.split('/')[5][11:]
-#            else:
-#                r["thumbnailUrl"] = s["paths"]["screenshot"]
-#            r["thumbnailUrl"] = request.url_root[:-1] +s["paths"]["screenshot"]
-            r["thumbnailUrl"] = request.url_root[:-1] +s["image"]
-#            r["thumbnailUrl"] = '/image/' + s["id"]
-            r["video_url"] = request.url_root + 'deovr/' + s["id"]
-            res.append(r)
-        data["scenes"].append({"name": f['name'], "list": res})
+            for s in scenes:
+                r = {}
+                r["title"] = s["title"]
+                r["videoLength"] = int(s["file"]["duration"])
+    #            if 'ApiKey' in headers:
+    #                screenshot_url = s["paths"]["screenshot"]
+    #                r["thumbnailUrl"] = request.base_url[:-6] + '/image_proxy?scene_id=' + screenshot_url.split('/')[
+    #                    4] + '&session_id=' + screenshot_url.split('/')[5][11:]
+    #            else:
+    #                r["thumbnailUrl"] = s["paths"]["screenshot"]
+    #            r["thumbnailUrl"] = request.url_root[:-1] +s["paths"]["screenshot"]
+                r["thumbnailUrl"] = request.url_root[:-1] +s["image"]
+    #            r["thumbnailUrl"] = '/image/' + s["id"]
+                r["video_url"] = request.url_root + 'deovr/' + s["id"]
+                res.append(r)
+            data["scenes"].append({"name": f['name'], "list": res})
     return jsonify(data)
 
 
@@ -1048,35 +1068,28 @@ def index():
 def show_category(filter_id):
     if not isLoggedIn():
         return redirect("/login", code=302)
+    f= getFilter(filter_id)
+    if f is None:
+        return "Error, filter does not exist"
 
     if 'enable' in request.args:
         if request.args.get('enable')=='True':
-            if 'enabled_filters' in config:
-                config['enabled_filters']=[]
-            config['enabled_filters'].append(filter_id)
-            saveConfig()
+            f['enabled']=True
         elif request.args.get('enable')=='False':
-            print("Disabling filter?")
-            if 'disabled_filters' in config:
-                config['disabled_filters']=[]
-            config['disabled_filters'].append(filter_id)
+            f['enabled']=False
         saveConfig()
-
-
 
     session['mode']='deovr'
     tags=[]
-    filters=filter()
-    for f in filters:
-        if filter_id == f['name']:
+    if filter_id == f['name']:
 #            scenes = get_scenes(f['filter'])
-            scenes=sort_scenes_date(cache['scenes'])
-            if 'post' in f:
-                var=f['post']
-                scenes=var(scenes,f)
-            session['filter']=f['name']
-            return render_template('index.html',filters=filters,filter=f,isGizmovr=False,scenes=scenes)
-    return "Error, filter does not exist"
+        scenes=sort_scenes_date(cache['scenes'])
+        if 'post' in f:
+            var=f['post']
+            scenes=var(scenes,f)
+        session['filter']=f['name']
+        return render_template('index.html',filters=config['filters'],filter=f,isGizmovr=False,scenes=scenes)
+
 
 @app.route('/scene/<int:scene_id>')
 def scene(scene_id):
@@ -1084,7 +1097,7 @@ def scene(scene_id):
         return redirect("/login", code=302)
 
     s = findScene(scene_id)
-    return render_template('scene.html',scene=s,filters=filter())
+    return render_template('scene.html',scene=s,filters=config['filters'])
 
 @app.route('/performer/<int:performer_id>')
 def performer(performer_id):
@@ -1102,14 +1115,14 @@ def performer(performer_id):
             scenes.append(s)
         print(str(s["performers"]))
 #    print(scenes)
-    return render_template('performer.html',performer=p,filters=filter(),scenes=scenes)
+    return render_template('performer.html',performer=p,filters=config['filters'],scenes=scenes)
 
 
 @app.route('/gizmovr/<string:filter_id>')
 def gizmovr_category(filter_id):
     session['mode']='gizmovr'
     tags=[]
-    filters=filter()
+    filters=config['filters']
     for f in filters:
         if filter_id == f['name']:
             scenes = get_scenes(f['filter'])
@@ -1217,9 +1230,9 @@ def info():
     res="cache refreshed "+str(refresh_time.total_seconds())+" seconds ago."
     res=res+"cache size="+str(len(cache['scenes']))+"<br/>"
 
-    res=res+str(cache['image_cache'])+"<br/>"
-    res=res+str(cache['scenes'])+'<br/>'
-    res=res+str(config)
+    res=res+"image cache: "+str(cache['image_cache'])+"<br/>"
+    res=res+"scenes: " +str (cache['scenes'])+'<br/>'
+    res=res+"config: " +str(config)
 
     res=res+"is logged in:"+str(isLoggedIn())
     return res
@@ -1331,9 +1344,14 @@ def refreshCache():
                     cache['image_cache'][s['id']] = {"file": os.path.join(image_dir, s['id']),
                                                      "mime": r.headers['Content-Type'], "updated": s["updated_at"]}
 
+    reload_filter_studios()
+    reload_filter_performer()
+    reload_filter_tag()
+
     if modified:
         save_index()
     print("Finished Cache Refresh")
+
 
 
 def setup_image_cache():
@@ -1352,12 +1370,18 @@ def save_index():
 
 
 def saveConfig():
-    print('Saving config: '+str(config))
+
+    cfg = config.copy()
+    for c in cfg['filters']:
+        c.pop('sort',None)
+        c.pop('post',None)
+
+    print('Saving config: '+str(cfg))
     if 'config_studio' in config:
-        input = {"id":config['config_studio'],"name": "vr-companion-config", "details":json.dumps(config)}
-        updateStudio(input)
+        input = {"id":config['config_studio'],"name": "vr-companion-config", "details":json.dumps(cfg)}
+        status=updateStudio(input)
     else:
-        input = {"name": "vr-companion-config","details":json.dumps(config)}
+        input = {"name": "vr-companion-config","details":json.dumps(cfg)}
         res=createStudio(input)
 #        config['config_studio']=res['id']
 
@@ -1395,12 +1419,13 @@ def heresphere():
     data["library"] = []
 
     all_scenes=None
-    for f in filter():
-        scenes=sort_scenes_date(cache['scenes'])
-        if 'post' in f:
-            var=f['post']
-            scenes=var(cache['scenes'],f)
-        data["library"].append({"name": f['name'], "list": [request.url_root + 'heresphere/' + s["id"] for s in scenes]})
+    for f in config['filters']:
+        if f['enabled']:
+            scenes=sort_scenes_date(cache['scenes'])
+            if 'post' in f:
+                var=f['post']
+                scenes=var(cache['scenes'],f)
+            data["library"].append({"name": f['name'], "list": [request.url_root + 'heresphere/' + s["id"] for s in scenes]})
     return jsonify(data),{"HereSphere-JSON-Version":1}
 
 @app.route('/heresphere/auth',methods=['POST'])
