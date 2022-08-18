@@ -12,12 +12,27 @@
 
 {%  endif %}
 
-
+Filter method: {{ filter['filter_name'] }}<br/>
 {% if filter['enabled'] %}
     Filter is <b>Enabled</b>, <a href="/filter/{{ filter['name'] }}?enable=False">Disable filter</a>
 {% else %}
         Filter is <b>Disabled</b>, <a href="/filter/{{ filter['name'] }}?enable=True">Enable filter</a>
 {%  endif %}
+
+
+<form action="?" method="POST">
+    <select name="sort_name" onchange="this.form.submit()">
+        {%  for sm in sort_methods %}
+        {% if sm ==filter['sort_name'] %}
+        <option value="{{ sm }}" selected>{{ sm }}</option>
+            {% else %}
+        <option value="{{ sm }}">{{ sm }}</option>
+            {% endif %}
+{% endfor %}
+
+    </select>
+</form>
+
 
 
 

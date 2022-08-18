@@ -4,6 +4,7 @@ import json
 import os
 import datetime
 import random
+import copy
 from threading import Timer
 from pathlib import Path
 from datetime import datetime
@@ -115,6 +116,8 @@ def tag_cleanup_performer(scenes,filter):
 def sort_scenes_date(scenes):
     return sorted(scenes,key=lambda x:x['date'] or '' ,reverse=True)
 
+def sort_scenes_date_desc(scenes):
+    return sorted(scenes,key=lambda x:x['date'] or '' )
 def sort_scenes_updated_at(scenes):
     return sorted(scenes,key=lambda x:x['updated_at'] or '' ,reverse=True)
 
@@ -125,12 +128,13 @@ def sort_scenes_title(scenes):
     return sorted(scenes,key=lambda x:x['title'] or '' ,reverse=True)
 
 def sort_scenes_random(scenes):
-    return random.sample(scenes)
+    return random.sample(scenes,len(scenes))
 
 sort_methods= {'date':sort_scenes_date,
+'date_asc':sort_scenes_date_desc,
     'updated_at': sort_scenes_updated_at,
-    'created_at': sort_scenes_updated_at,
-    'title': sort_scenes_updated_at,
+    'created_at': sort_scenes_created_at,
+    'title': sort_scenes_title,
     'random': sort_scenes_random}
 
 filter_methods= {'default':filter_studio,
@@ -146,7 +150,6 @@ filter_methods= {'default':filter_studio,
 default_filters=[
     {'name':'Recent',
      'type':'BUILTIN',
-     'sort':sort_scenes_date,
      'filter_name':'default',
      'sort_name':'date',
      'enabled':True
@@ -154,8 +157,6 @@ default_filters=[
     {
         'name':'VR',
         'type': 'BUILTIN',
-        'post': tag_cleanup_3d,
-        'sort': sort_scenes_date,
         'filter_name':'3d',
         'sort_name': 'date',
         'enabled':True
@@ -163,8 +164,6 @@ default_filters=[
     {
         'name': '2D',
         'type': 'BUILTIN',
-        'post': tag_cleanup_2d,
-        'sort': sort_scenes_date,
         'filter_name': '2d',
         'sort_name': 'date',
         'enabled':True
@@ -172,8 +171,6 @@ default_filters=[
     {
         'name': 'Random',
         'type': 'BUILTIN',
-        'post': tag_cleanup_random,
-        'sort':sort_scenes_random,
         'filter_name': 'random',
         'sort_name': 'random',
         'enabled':True
@@ -181,8 +178,6 @@ default_filters=[
     {
         'name': 'Interactive',
         'type': 'BUILTIN',
-        'post': tag_cleanup_interactive,
-        'sort': sort_scenes_date,
         'filter_name': 'interactive',
         'sort_name': 'date',
         'enabled':True
@@ -573,7 +568,7 @@ def reload_filter_studios():
 #                    "tags": {"depth": 0, "modifier": "INCLUDES_ALL", "value": [tags_cache['export_deovr']['id']]},
 #                    "studios": {"depth": 3, "modifier": "INCLUDES_ALL", "value": [s['id']]}}
 #                studio_fiter['filter'] = {"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
-                studio_fiter['post']=tag_cleanup_studio
+#                studio_fiter['post']=tag_cleanup_studio
                 studio_fiter['filter_name'] = 'studio'
                 studio_fiter['sort_name'] = 'date'
                 studio_fiter['enabled'] = True
@@ -619,7 +614,7 @@ def reload_filter_performer():
 #                                     "performers": {"modifier": "INCLUDES_ALL", "value": [p["id"]]}}
 #                    tag_cleanup_performer
 #                performer_filter['filter'] = {"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
-                performer_filter['post'] = tag_cleanup_performer
+#                performer_filter['post'] = tag_cleanup_performer
                 performer_filter['filter_name']='performer'
                 performer_filter['sort_name']='date'
                 performer_filter['enabled']=True
@@ -636,10 +631,11 @@ def reload_filter_tag():
             tags_filter['type']='TAG'
             tags_filter['id']=f['id']
     #        tags_filter['filter']= {"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}}
-            tags_filter['post']=tag_cleanup
+#            tags_filter['post']=tag_cleanup
             tags_filter['enabled']=True
             tags_filter['filter_name'] = 'tag'
             tags_filter['sort_name'] = 'date'
+            config['filters'].append(tags_filter)
 
 #        res.append(tags_filter)
 #    return res
@@ -842,9 +838,6 @@ def setup():
             if len(s['details']) > 0:
                 print("Loading config from stash: "+s['details'])
                 config.update(json.loads(s['details']))
-                for f in config['filters']:
-                    f['post']=filter_methods[f['filter_name']]
-                    f['sort']=sort_methods[f['sort_name']]
                 print('final config:' +str(config))
 
     if 'filters' not in config:
@@ -898,10 +891,13 @@ def deovr():
     #            all_scenes = get_scenes(f['filter'])
 
     #        scenes = all_scenes
-            scenes=sort_scenes_date(cache['scenes'])
-            if 'post' in f:
-                var=f['post']
-                scenes=var(scenes,f)
+#            scenes=sort_scenes_date(cache['scenes'])
+#            if 'post' in f:
+#                var=f['post']
+#                scenes=var(scenes,f)
+            filter_func = filter_methods[f['filter_name']]
+            sort_func = sort_methods[f['sort_name']]
+            scenes = sort_func(filter_func(cache['scenes'], f))
 
 
             for s in scenes:
@@ -1078,17 +1074,33 @@ def show_category(filter_id):
         elif request.args.get('enable')=='False':
             f['enabled']=False
         saveConfig()
+    if 'sort_name' in request.form:
+        sort_name=request.form['sort_name']
+        f['sort_name']=sort_name
+        f['sort']=sort_methods[sort_name]
+        print(f)
+        saveConfig()
 
     session['mode']='deovr'
     tags=[]
     if filter_id == f['name']:
 #            scenes = get_scenes(f['filter'])
-        scenes=sort_scenes_date(cache['scenes'])
-        if 'post' in f:
-            var=f['post']
-            scenes=var(scenes,f)
+#        scenes=cache['scenes']
+
+#        print (f)
+#        if 'post' in f:
+        filter_func=filter_methods[f['filter_name']]
+        sort_func=sort_methods[f['sort_name']]
+
+
+#scenes = filter_func(scenes, f)
+        scenes=sort_func(filter_func(cache['scenes'],f))
+#        print(f)
+#            var=f['sort']
+#            scenes=var(scenes,f)
         session['filter']=f['name']
-        return render_template('index.html',filters=config['filters'],filter=f,isGizmovr=False,scenes=scenes)
+        return render_template('index.html',filters=config['filters'],filter=f,isGizmovr=False,scenes=scenes,sort_methods=sort_methods.keys())
+    return "error?"
 
 
 @app.route('/scene/<int:scene_id>')
@@ -1371,17 +1383,14 @@ def save_index():
 
 def saveConfig():
 
-    cfg = config.copy()
-    for c in cfg['filters']:
-        c.pop('sort',None)
-        c.pop('post',None)
 
-    print('Saving config: '+str(cfg))
+    print('Saving config: '+str(config))
+    print(config)
     if 'config_studio' in config:
-        input = {"id":config['config_studio'],"name": "vr-companion-config", "details":json.dumps(cfg)}
+        input = {"id":config['config_studio'],"name": "vr-companion-config", "details":json.dumps(config)}
         status=updateStudio(input)
     else:
-        input = {"name": "vr-companion-config","details":json.dumps(cfg)}
+        input = {"name": "vr-companion-config","details":json.dumps(config)}
         res=createStudio(input)
 #        config['config_studio']=res['id']
 
@@ -1421,10 +1430,13 @@ def heresphere():
     all_scenes=None
     for f in config['filters']:
         if f['enabled']:
-            scenes=sort_scenes_date(cache['scenes'])
-            if 'post' in f:
-                var=f['post']
-                scenes=var(cache['scenes'],f)
+            filter_func = filter_methods[f['filter_name']]
+            sort_func = sort_methods[f['sort_name']]
+            scenes = sort_func(filter_func(cache['scenes'], f))
+
+            #            if 'post' in f:
+#               var=f['post']
+#                scenes=var(cache['scenes'],f)
             data["library"].append({"name": f['name'], "list": [request.url_root + 'heresphere/' + s["id"] for s in scenes]})
     return jsonify(data),{"HereSphere-JSON-Version":1}
 
