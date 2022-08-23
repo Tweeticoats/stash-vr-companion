@@ -577,7 +577,7 @@ def reload_filter_studios():
         else:
             #check if the filter used to have the export_deovr tag but no longer does and remove it
             for f in config['filters']:
-                if f['type'] == 'studio' and f['id'] == s['id']:
+                if f['type'] == 'studio' and f['studio_id'] == s['id']:
                     config['filters'].remove(f)
 
 
@@ -598,7 +598,7 @@ def reload_filter_performer():
             if 'export_deovr' not in [x['name'] for x in p['tags']]:
             # Performer tag used to exist but no longer
                 for f in config['filters']:
-                    if f['type']=='PERFORMER' and f['id']==p['id']:
+                    if f['type']=='PERFORMER' and f['performer_id']==p['id']:
                         config['filters'].remove(f)
         else:
             if 'export_deovr' in [x['name'] for x in p['tags']]:
