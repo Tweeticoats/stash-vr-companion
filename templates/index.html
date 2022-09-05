@@ -12,27 +12,37 @@
 
 {%  endif %}
 
-Filter method: {{ filter['filter_name'] }}<br/>
+
 {% if filter['enabled'] %}
     Filter is <b>Enabled</b>, <a href="/filter/{{ filter['name'] }}?enable=False">Disable filter</a>
 {% else %}
         Filter is <b>Disabled</b>, <a href="/filter/{{ filter['name'] }}?enable=True">Enable filter</a>
 {%  endif %}
-
-
+<p><a href="/filter/{{ filter['name'] }}?move=left">Move Left</a>
 <form action="?" method="POST">
-    <select name="sort_name" onchange="this.form.submit()">
+    Sort method: <select name="sort_name" onchange="this.form.submit()">
         {%  for sm in sort_methods %}
         {% if sm ==filter['sort_name'] %}
         <option value="{{ sm }}" selected>{{ sm }}</option>
             {% else %}
         <option value="{{ sm }}">{{ sm }}</option>
             {% endif %}
-{% endfor %}
-
+        {% endfor %}
     </select>
-</form>
-
+    {% if filter['type']=='STUDIO' %}
+            <select name="filter_name" onchange="this.form.submit()">
+            {%  for s in ['studio','sub-studio'] %}
+            {% if filter['filter_name'] == s%}
+            <option value="{{ s }}" selected>{{ s }}</option>
+            {% else %}
+            <option value="{{ s }}">{{ s }}</option>
+                {% endif %}
+            {% endfor %}
+            </select>
+        {% else %}
+        Filter method: {{ filter['filter_name'] }}<br/>
+    {%  endif %}
+</form><a href="/filter/{{ filter['name'] }}?move=right">Move Right</a></p>
 
 
 

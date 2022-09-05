@@ -113,6 +113,24 @@ def tag_cleanup_performer(scenes,filter):
             res.append(s)
     return res
 
+#def filter_multi(scenes,filter):
+#    for f in filters['sub_filter']:
+#        filter_func = filter_methods[f['filter_name']]
+#        filter_func(scenes,filter)
+#    return filter
+
+def filter_substudio(scenes,filter):
+    res=[]
+    for st in studios:
+        if filter['studio_id'] == st['id']:
+            for s in scenes:
+                if s['studio']:
+                    if filter['studio_id'] == s['studio']['id']:
+                        res.append(s)
+                    elif s['studio']['id'] in [x['id'] for x in st['child_studios']]:
+                        res.append(s)
+            return res
+    return res
 def sort_scenes_date(scenes):
     return sorted(scenes,key=lambda x:x['date'] or '' ,reverse=True)
 
@@ -144,6 +162,7 @@ filter_methods= {'default':filter_studio,
     'star': tag_cleanup_star,
     'interactive': tag_cleanup_interactive,
     'studio': tag_cleanup_studio,
+    'sub-studio':filter_substudio,
     'performer': tag_cleanup_performer,
     'random': tag_cleanup_random}
 
@@ -167,6 +186,13 @@ default_filters=[
         'filter_name': '2d',
         'sort_name': 'date',
         'enabled':True
+    },
+    {
+        'name': '5star',
+        'type': 'BUILTIN',
+        'filter_name': 'star',
+        'sort_name': 'date',
+        'enabled': True
     },
     {
         'name': 'Random',
@@ -531,6 +557,10 @@ def findStudioIdWithName(name):
   allStudios {
     id
     name
+    child_studios{
+      id
+      name
+    }
   }
 }"""
     result = __callGraphQL(query)
@@ -546,6 +576,10 @@ def reload_studios():
         id
         name
         details
+        child_studios{
+          id
+          name
+        }
       }
     }"""
     result = __callGraphQL(query)
@@ -831,7 +865,7 @@ def setup():
         auth['username']=cfg["configuration"]["general"]["username"]
         auth['password']=cfg["configuration"]["general"]["password"]
     reload_studios()
-    print(str(studios))
+#    print(str(studios))
     for s in studios:
         if s['name']=='vr-companion-config':
             config['config_studio']=int(s['id'])
@@ -839,6 +873,14 @@ def setup():
                 print("Loading config from stash: "+s['details'])
                 config.update(json.loads(s['details']))
                 print('final config:' +str(config))
+
+                for df in default_filters:
+                    found = False
+                    for f in config['filters']:
+                        if f['type'] == 'BUILTIN' and f['name']==df['name']:
+                            found=True
+                    if not found:
+                        config['filters'].append(df)
 
     if 'filters' not in config:
         config['filters'] = default_filters
@@ -1074,28 +1116,50 @@ def show_category(filter_id):
         elif request.args.get('enable')=='False':
             f['enabled']=False
         saveConfig()
+    if 'move' in request.args:
+        pass
+    if request.args.get('move')=='left':
+        index=config['filters'].index(f)
+        config['filters'].pop(index)
+        config['filters'].insert(index-1,f)
+        print('move left: '+str(config['filters']))
+        saveConfig()
+    elif request.args.get('move')=='right':
+        index=config['filters'].index(f)
+        config['filters'].pop(index)
+        config['filters'].insert(index+1,f)
+#        config['filters']=config['filters'][index+1:]+config['filters'][:index+1]
+        print('move right: '+str(config['filters']))
+        saveConfig()
+
     if 'sort_name' in request.form:
         sort_name=request.form['sort_name']
         f['sort_name']=sort_name
-#        f['sort']=sort_methods[sort_name]
-        print(f)
+        #        f['sort']=sort_methods[sort_name]
+#        print(f)
+        saveConfig()
+    if 'filter_name' in request.form:
+        filter_name = request.form['filter_name']
+        f['filter_name'] = filter_name
+        #        f['sort']=sort_methods[sort_name]
+        #        print(f)
         saveConfig()
 
     session['mode']='deovr'
     tags=[]
     if filter_id == f['name']:
-#            scenes = get_scenes(f['filter'])
-#        scenes=cache['scenes']
+        #            scenes = get_scenes(f['filter'])
+        #        scenes=cache['scenes']
 
-#        print (f)
-#        if 'post' in f:
+        #        print (f)
+        #        if 'post' in f:
         filter_func=filter_methods[f['filter_name']]
         sort_func=sort_methods[f['sort_name']]
 
         scenes=sort_func(filter_func(cache['scenes'],f))
-#        print(f)
-#            var=f['sort']
-#            scenes=var(scenes,f)
+        #        print(f)
+        #            var=f['sort']
+        #            scenes=var(scenes,f)
         session['filter']=f['name']
         return render_template('index.html',filters=config['filters'],filter=f,isGizmovr=False,scenes=scenes,sort_methods=sort_methods.keys())
     return "error?"
@@ -1123,7 +1187,7 @@ def performer(performer_id):
     for s in cache["scenes"]:
         if performer_id in [int(x["id"]) for x in s["performers"]]:
             scenes.append(s)
-        print(str(s["performers"]))
+#        print(str(s["performers"]))
 #    print(scenes)
     return render_template('performer.html',performer=p,filters=config['filters'],scenes=scenes)
 
