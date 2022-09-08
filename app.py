@@ -4,6 +4,7 @@ import json
 import os
 import datetime
 import random
+import base64
 import copy
 from threading import Timer
 from pathlib import Path
@@ -48,6 +49,7 @@ cache_refresh_time=None
 cache={"refresh_time":0,"scenes":[],"image_cache":{}}
 
 image_dir = os.getenv('CACHE_DIR', './cache')
+hsp_dir = os.getenv('HSP_DIR', './hsp')
 auth={}
 
 needs_auth=False
@@ -131,6 +133,13 @@ def filter_substudio(scenes,filter):
                         res.append(s)
             return res
     return res
+
+def filter_markers(scenes,filter):
+    res=[]
+    for s in scenes:
+        if len(s["scene_markers"]) > 0:
+            res.append(s)
+    return res
 def sort_scenes_date(scenes):
     return sorted(scenes,key=lambda x:x['date'] or '' ,reverse=True)
 
@@ -161,6 +170,7 @@ filter_methods= {'default':filter_studio,
     '3d': tag_cleanup_3d,
     'star': tag_cleanup_star,
     'interactive': tag_cleanup_interactive,
+    'markers':filter_markers,
     'studio': tag_cleanup_studio,
     'sub-studio':filter_substudio,
     'performer': tag_cleanup_performer,
@@ -207,7 +217,15 @@ default_filters=[
         'filter_name': 'interactive',
         'sort_name': 'date',
         'enabled':True
-    }]
+    },
+    {
+        'name': 'Markers',
+        'type': 'BUILTIN',
+        'filter_name': 'markers',
+        'sort_name': 'date',
+        'enabled':False
+    }
+]
 
 
 
@@ -344,6 +362,13 @@ tags{
     title
     seconds
   }
+  movies{
+  scene_index
+  movie{
+  id
+  name
+  }
+  }
 }
 }
 }"""
@@ -471,15 +496,145 @@ tags{
 #        rewrite_image_url(res)
     return res
 
-def updateScene(self, sceneData):
+
+def updateScene(sceneData):
     query = """mutation sceneUpdate($input:SceneUpdateInput!) {
     sceneUpdate(input: $input) {
     id
+    checksum
+    oshash
+    title
+    details
+    url
+    date
+    rating
+    organized
+    o_counter
+    path
+    interactive
+    updated_at
+    created_at
+    file {
+    size
+    duration
+    video_codec
+    audio_codec
+    width
+    height
+    framerate
+    bitrate
     }
+    paths {
+    screenshot
+    preview
+    stream
+    webp
+    vtt
+    chapters_vtt
+    sprite
+    funscript
+    interactive_heatmap
+    }
+    galleries {
+    id
+    checksum
+    path
+    title
+    url
+    date
+    details
+    rating
+    organized
+    studio {
+    id
+    name
+    url
+    }
+    image_count
+    tags {
+    id
+    name
+    image_path
+    scene_count
+    }
+    }
+    performers {
+    id
+    name
+    gender
+    url
+    twitter
+    instagram
+    birthdate
+    ethnicity
+    country
+    eye_color
+    country
+    height
+    measurements
+    fake_tits
+    career_length
+    tattoos
+    piercings
+    aliases
+    }
+    studio{
+    id
+    name
+    url
+    stash_ids{
+    endpoint
+    stash_id
+    }
+    }
+    tags{
+    id
+    name
+    }
+    
+    stash_ids{
+    endpoint
+    stash_id
+    }
+    scene_markers{
+    id
+    title
+    seconds
+    }
+    movies{
+    scene_index
+    movie{
+        id
+        name
+    }
+    }
+  }
 }"""
-    variables = {'input': sceneData}
-
-    self.__callGraphQL(query, variables)
+    data={}
+    data["id"]=sceneData["id"]
+    data["title"]=sceneData["title"]
+    data["details"] = sceneData["details"]
+    data["url"] = sceneData["url"]
+    data["date"] = sceneData["date"]
+    data["rating"] = sceneData["rating"]
+    data["organized"] = sceneData["organized"]
+    data["studio_id"] = sceneData["studio"]["id"]
+    data["gallery_ids"] = [x['id'] for x in  sceneData["galleries"]]
+    data["performer_ids"]= [x['id'] for x in  sceneData["performers"]]
+    data["movies"] = [{"id":x['movie']['id'],"scene_index":x["scene_index"]} for x in sceneData["movies"]]
+    data["tag_ids"]=[x['id'] for x in sceneData["tags"]]
+    data["stash_ids"]= sceneData["stash_ids"]
+#    if str(sceneData["id"]) in cache['image_cache']:
+#        with open(cache['image_cache'][str(sceneData["id"])]["file"],'rb') as f:
+#            data["cover_image"]=base64.b64encode(f.read()).decode()
+    variables = {'input': data}
+#    print(data)
+    res= __callGraphQL(query, variables)["sceneUpdate"]
+    res["image"] = '/image/' + str(sceneData["id"])
+    scene_type(res)
+    cache['scenes'].remove(sceneData)
+    cache['scenes'].append(res)
+    return res
 
 
 
@@ -779,7 +934,7 @@ stash_ids {
 }
 """
     variables = {'input': performer}
-    return self.__callGraphQL(query, variables)
+    return __callGraphQL(query, variables)
 
 
 def createTagWithName(name):
@@ -1165,13 +1320,29 @@ def show_category(filter_id):
     return "error?"
 
 
-@app.route('/scene/<int:scene_id>')
+@app.route('/scene/<int:scene_id>',methods=['GET', 'POST'])
 def scene(scene_id):
     if not isLoggedIn():
         return redirect("/login", code=302)
-
     s = findScene(scene_id)
-    return render_template('scene.html',scene=s,filters=config['filters'])
+    if s is None:
+        return redirect("/", code=302)
+    if 'rating' in request.form:
+        s['rating'] = request.form['rating']
+        print("updating scene: "+str(s))
+        s=updateScene(s)
+    if 'enabled' in request.args:
+        if request.args.get('enabled')=='True':
+            s['tags'].append(tags_cache['export_deovr'])
+        elif request.args.get('enabled')=='False':
+            for t in s['tags']:
+                if t['name']=='export_deovr':
+                    s['tags'].remove(t)
+        s=updateScene(s)
+    enabled=False
+    if "export_deovr" in [x["name"] for x in s['tags']]:
+        enabled=True
+    return render_template('scene.html',scene=s,filters=config['filters'],enabled=enabled)
 
 @app.route('/performer/<int:performer_id>')
 def performer(performer_id):
@@ -1441,6 +1612,9 @@ def setup_image_cache():
         with open(os.path.join(image_dir,"index.json")) as f:
             cache['image_cache']=json.load(f)
             print("loaded cache index" +str(len(cache['image_cache'])))
+    if not os.path.exists(hsp_dir):
+        os.mkdir(hsp_dir)
+
 
 def save_index():
     with open(os.path.join(image_dir, "index.json"), 'w') as f:
@@ -1470,6 +1644,14 @@ def images(scene_id):
     return "image not in cache"
 
 
+@app.route('/hsp/<int:scene_id>')
+def hsp(scene_id):
+    file = os.path.join(hsp_dir, str(scene_id) + ".hsp")
+    if os.path.exists(file):
+        with open(file,'rb') as f:
+            hsp=f.read()
+            return Response(hsp)
+    return "hsp file not found",404
 
 
 @app.route('/heresphere',methods=['GET', 'POST'])
@@ -1479,7 +1661,7 @@ def heresphere():
     if 'ApiKey' in headers and request.method == 'POST':
 
         if request.json['username']==auth['username'] and bcrypt.check_password_hash(auth['password'], request.json['password']):
-            data["access"] = "1"
+            data["access"] = 1
         elif 'Auth-Token' in request.headers:
             if request.headers['Auth-Token']==headers['ApiKey']:
                 data["access"]=1
@@ -1488,7 +1670,7 @@ def heresphere():
         else:
             return jsonify({"access": "-1","library":[]}),{"HereSphere-JSON-Version":1}
     else:
-        data["access"] = "0"
+        data["access"] = 0
 
 
 #    data["banner"]={"image": "https://www.example.com/heresphere/banner.png","link":""}
@@ -1514,7 +1696,7 @@ def heresphere_auth():
 
         print("here: "+str(request.json)+request.json['username']+"-"+request.json['username'])
         if request.json['username']==auth['username'] and bcrypt.check_password_hash(auth['password'], request.json['password']):
-            data["access"] = "1"
+            data["access"] = 1
             data["auth-token"]=headers['ApiKey']
             print("Successful login")
         else:
@@ -1529,20 +1711,42 @@ def heresphere_scene(scene_id):
 
         print("scene: "+str(request.json)+request.json['username']+"-"+request.json['username'])
         if request.json['password']==headers['ApiKey']:
-            scene["access"] = "1"
+            scene["access"] = 1
             print("Successful login")
         elif 'Auth-Token' in request.headers:
             if request.headers['Auth-Token']==headers['ApiKey']:
-                scene["access"] = "1"
+                scene["access"] = 1
             else:
-                return jsonify({"access": "-1"}), {"HereSphere-JSON-Version": 1}
+                return jsonify({"access": -1}), {"HereSphere-JSON-Version": 1}
         else:
-            return jsonify({"access": "-1"}),{"HereSphere-JSON-Version":1}
+            return jsonify({"access": -1}),{"HereSphere-JSON-Version":1}
+
+
     else:
-        scene["access"] = "0"
+        scene["access"] = 1
 
 
     s=findScene(scene_id)
+
+    if request.method == 'POST' and 'rating' in request.json:
+        # Save Ratings
+        print("Saving rating " + str(request.json['rating']))
+        s["rating"]=int(request.json['rating'])
+        print("updating scene: "+str(s))
+        updateScene(s)
+    if request.method == 'POST' and 'tags' in request.json:
+        # Save Ratings
+        print("Saving tags:" + str(request.json['tags']))
+    if request.method == 'POST' and 'hsp' in request.json:
+
+        file=os.path.join(hsp_dir, str(scene_id)+".hsp")
+        print("Saving hsp to :"+file+ ", "+ str(request.json['hsp']))
+        with open(file, "wb") as f:
+            f.write(base64.b64decode(request.json['hsp']))
+            f.close()
+
+
+
 
 #    content = request.get_json(silent=True)
 #    if content:
@@ -1552,15 +1756,23 @@ def heresphere_scene(scene_id):
 
 
 #    scene["id"] = s["id"]
+    scene["writeRating"]=True
+#    scene["writeTags"]=True
+    scene["writeHSP"]=True
+#    scene["writeFavorite"] = True
+
+
+    if os.path.exists(os.path.join(hsp_dir,str(scene_id) + ".hsp")):
+        scene['hsp']=request.url_root+'hsp/'+str(scene_id)
     scene["title"] = s["title"]
     scene["description"] = s["details"]
     scene["thumbnailImage"] = request.url_root[:-1] +s["image"]
     scene["thumbnailVideo"] = s["paths"]["preview"]
     scene["dateReleased"]=s["date"]
     scene["dateAdded"] = s["date"]
-    scene["duration"]= int(s["file"]["duration"])
-    scene["favorites"]=0
-    scene["comments"]=0
+    scene["duration"]= s["file"]["duration"]*1000
+#    scene["favorites"]=0
+#    scene["comments"]=0
     scene["isFavorite"]=False
     if s["rating"]:
         scene["rating"]=s["rating"]
@@ -1609,17 +1821,23 @@ def heresphere_scene(scene_id):
     tags=[]
 
 
-    for t in s["tags"]:
-        tags.append({"name":t["name"],"start":0,"end":0,"track":0,"rating":0})
     if "scene_markers" in s:
+        previous_marker=None
         for m in s["scene_markers"]:
-            tags.append({"start":m["seconds"],"end":0,"name":m["title"],"track":0,"rating":0})
+            if previous_marker is not None:
+                tags.append({"start":previous_marker["seconds"]*1000,"end":m["seconds"]*1000,"name":previous_marker["title"],"track":0})
+            previous_marker=m
+        if previous_marker is not None:
+            tags.append({"start": previous_marker["seconds"]*1000, "end": 0, "name": previous_marker["title"],"track": 0})
+    for t in s["tags"]:
+        tags.append({"name":"Category:"+t["name"]})
+
 
     for p in s["performers"]:
         # actors.append({"id":p["id"],"name":p["name"]})
-        tags.append( {"name": "Talent:"+p["name"],"track":1,"start":0,"end":0,"rating":0})
+        tags.append( {"name": "Talent:"+p["name"]})
     if s["studio"]:
-        tags.append({"name":"Studio:"+s["studio"]["name"],"track":2,"start":0,"end":0,"rating":0})
+        tags.append({"name":"Studio:"+s["studio"]["name"]})
 
     if s["interactive"]:
         if 'ApiKey' in headers:
@@ -1647,6 +1865,7 @@ def login():
 def logout():
     session.pop('username', None)
     return redirect("/login", code=302)
+
 
 
 

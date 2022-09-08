@@ -20,6 +20,24 @@
         <b><a href="/performer/{{ p['id'] }}">{{ p['name'] }}</a></b>
     {% endfor %}
     <br/>
+
+    <form action="?" method="POST">
+        Rating: <select name="rating" onchange="this.form.submit()">
+        {%  for r in [0,1,2,3,4,5] %}
+        {% if r==scene['rating'] %}
+        <option value="r" selected>{{ r }}</option>
+            {% else %}
+        <option value="{{ r }}">{{ r }}</option>
+            {% endif %}
+        {% endfor %}
+    </select>
+    </form>
+    {% if enabled %}
+    <a href="/scene/{{ scene['id'] }}?enabled=False">Disable</a>
+        {% else %}
+    <a href="/scene/{{ scene['id'] }}?enabled=True">Enable</a>
+        {% endif %}
+
     Description:<p>{{ scene['details'] }}</p>
 {% else %}
 <h1> Error connecting to stash</h1>
