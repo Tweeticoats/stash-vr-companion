@@ -361,6 +361,10 @@ tags{
     id
     title
     seconds
+    primary_tag{
+    id
+    name
+    }
   }
   movies{
   scene_index
@@ -888,6 +892,7 @@ def reload_filter_cache():
   allTags{
     id
     name
+    aliases
     children{
      id
       name
@@ -899,6 +904,10 @@ def reload_filter_cache():
         tags_cache.clear()
     for t in result["allTags"]:
         tags_cache[t['name']]=t
+        if t['name'].lower()=='favorite':
+            cache['favorite_tag']=t
+        elif 'favorite' in t['aliases']:
+            cache['favorite_tag'] = t
 
 
 def performer_update(self,performer):
@@ -985,6 +994,39 @@ name
     variables = {'input': input}
     result = __callGraphQL(query, variables)
 
+def createMarker(input):
+    query="""mutation sceneMarkerCreate($input: SceneMarkerCreateInput!) {
+sceneMarkerCreate(input: $input) {
+    id
+    title
+    seconds
+    primary_tag{
+        id
+        name
+    }
+  }
+}"""
+    variables = {'input': input}
+    result = __callGraphQL(query, variables)
+
+def updateMarker(input):
+    query="""mutation sceneMarkerUpdate($input: SceneMarkerUpdateInput!) {
+sceneMarkerUpdate(input: $input) {
+    id
+    title
+    seconds
+    primary_tag{
+        id
+        name
+    }
+  }
+}"""
+    variables = {'input': input}
+    result = __callGraphQL(query, variables)
+
+
+
+
 
 def filter():
     reload_filter_cache()
@@ -1009,12 +1051,13 @@ def rewrite_image_url(scene):
 
 
 def setup():
-    tags = ["VR", "SBS", "TB", "export_deovr", "FLAT", "DOME", "SPHERE", "FISHEYE", "MKX200"]
+    tags = ["VR", "SBS", "TB", "export_deovr", "FLAT", "DOME", "SPHERE", "FISHEYE", "MKX200", "Favorite"]
     reload_filter_cache()
     for t in tags:
-        if t not in tags_cache.keys():
+        if t.lower() not in [x.lower() for x in tags_cache.keys()]:
             print("creating tag " +t)
             createTagWithName(t)
+
     if 'ApiKey' in headers:
         cfg=getStashConfig()
         auth['username']=cfg["configuration"]["general"]["username"]
@@ -1737,8 +1780,68 @@ def heresphere_scene(scene_id):
     if request.method == 'POST' and 'tags' in request.json:
         # Save Ratings
         print("Saving tags:" + str(request.json['tags']))
-    if request.method == 'POST' and 'hsp' in request.json:
+        for t in request.json['tags']:
+            if t['track']==0:
+                found_marker=None
+                previous_marker=None
+                for m in s["scene_markers"]:
+                    # Check for a marker with either the same start or end time as on the scene
+                    if t['start']-5000 > m['seconds']*1000 and t['start']-5000 < m['seconds']*1000:
+                        #updateTag
+                        found_marker=m
+                    if previous_marker is not None:
+                        if t['end'] - 5000 > previous_marker['seconds'] * 1000 and t['end'] - 5000 < previous_marker['seconds'] * 1000:
+                            found=True
+                            found_marker = previous_marker
+                    previous_marker=m
+                if previous_marker is not None:
+                    if t['end'] - 5000 > previous_marker['seconds'] * 1000 and t['end'] - 5000 < previous_marker['seconds'] * 1000:
+                        found_marker = previous_marker
+                if found_marker is not None:
+                    data={'id':found_marker['id'],'title':found_marker['title'],'seconds':found_marker['seconds'] * 1000,'scene_id':s['id'],'primary_tag_id':found_marker['primary_tag_id']}
+                    updateMarker(data)
+                else:
+                    #Create a new marker
+                    tag=None
+                    if t['name'].startswith('Tag:'):
+                        for tc in tags_cache.keys():
+                            if t['name'][4:].lower()==tc.lower():
+                                tag=tags_cache[tc]
+                                print("tag:"+tc)
+                                break
+                            if t['name'][4:].lower() in [x.lower() for x in tags_cache[tc]['aliases']]:
+                                tag = tags_cache[tc]
+                                print("tag:" + tc)
+                                break
+#                        tag=tags_cache[t['name'][4:]]
+                    else:
 
+                        for tc in tags_cache.keys():
+                            if t['name'].lower()==tc.lower():
+                                tag=tags_cache[tc]
+                                print("tag:"+tc)
+                                break
+                            if t['name'].lower() in [x.lower() for x in tags_cache[tc]['aliases']]:
+                                tag = tags_cache[tc]
+                                print("tag:" + tc)
+                                break
+                    #                       tag=tags_cache[t['name']]
+                    data={"title":t['name'],"seconds":t["start"]/1000, "scene_id":s["id"],"primary_tag_id":tag['id']}
+                    createMarker(data)
+
+
+
+
+    if request.method == 'POST' and 'isFavorite' in request.json:
+        if request.json['isFavorite']==True:
+            s["tags"].append(cache['favorite_tag'])
+        else:
+            for t in s['tags']:
+                if t['name'] == 'favorite':
+                    s['tags'].remove(t)
+        updateScene(s)
+
+    if request.method == 'POST' and 'hsp' in request.json:
         file=os.path.join(hsp_dir, str(scene_id)+".hsp")
         print("Saving hsp to :"+file+ ", "+ str(request.json['hsp']))
         with open(file, "wb") as f:
@@ -1757,9 +1860,9 @@ def heresphere_scene(scene_id):
 
 #    scene["id"] = s["id"]
     scene["writeRating"]=True
-#    scene["writeTags"]=True
+    scene["writeTags"]=True
     scene["writeHSP"]=True
-#    scene["writeFavorite"] = True
+    scene["writeFavorite"] = True
 
 
     if os.path.exists(os.path.join(hsp_dir,str(scene_id) + ".hsp")):
@@ -1774,10 +1877,10 @@ def heresphere_scene(scene_id):
 #    scene["favorites"]=0
 #    scene["comments"]=0
     scene["isFavorite"]=False
+    if cache['favorite_tag']['id'] in [t['id'] for t in  s["tags"]]:
+        scene["isFavorite"] = True
     if s["rating"]:
         scene["rating"]=s["rating"]
-        if s["rating"]==5:
-            scene["isFavorite"] = True
     else:
         scene["rating"]=0
 
