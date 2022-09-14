@@ -50,6 +50,9 @@ cache={"refresh_time":0,"scenes":[],"image_cache":{}}
 
 image_dir = os.getenv('CACHE_DIR', './cache')
 hsp_dir = os.getenv('HSP_DIR', './hsp')
+
+files_refactor = bool(os.getenv('FILES_REFACTOR','False'))
+
 auth={}
 
 needs_auth=False
@@ -257,6 +260,8 @@ def get_scenes_with_tag( tag):
     return get_scenes({"tags": {"value": [tagID], "modifier": "INCLUDES_ALL"}})
 
 def get_scenes(scene_filter, sort="updated_at",direction="DESC",per_page=100,page=1):
+    if files_refactor:
+        return get_scenes_F(scene_filter,sort,direction,per_page,page)
     query = """query findScenes($scene_filter: SceneFilterType!, $filter: FindFilterType) {
 findScenes(scene_filter: $scene_filter filter: $filter ) {
 count
@@ -361,10 +366,6 @@ tags{
     id
     title
     seconds
-    primary_tag{
-    id
-    name
-    }
   }
   movies{
   scene_index
@@ -385,10 +386,11 @@ tags{
 #            rewrite_image_url(s)
     return result
 
-
-def lookupScene(id):
-    query = """query findScene($scene_id: ID!){
-findScene(id: $scene_id){
+def get_scenes_F(scene_filter, sort="updated_at",direction="DESC",per_page=100,page=1):
+    query = """query findScenes($scene_filter: SceneFilterType!, $filter: FindFilterType) {
+findScenes(scene_filter: $scene_filter filter: $filter ) {
+count
+scenes {
   id
   checksum
   oshash
@@ -400,6 +402,125 @@ findScene(id: $scene_id){
   organized
   o_counter
   path
+  interactive
+  updated_at
+  created_at
+  files {
+    size
+    duration
+    video_codec
+    audio_codec
+    width
+    height
+  }
+  paths {
+    screenshot
+    preview
+    stream
+    webp
+    vtt
+    chapters_vtt
+    sprite
+    funscript
+    interactive_heatmap
+  }
+  galleries {
+    id
+    title
+    url
+    date
+    details
+    rating
+    organized
+    studio {
+      id
+      name
+      url
+    }
+    image_count
+    tags {
+      id
+      name
+      image_path
+      scene_count
+    }
+  }
+  performers {
+    id
+    name
+    gender
+    url
+    twitter
+    instagram
+    birthdate
+    ethnicity
+    country
+    eye_color
+    country
+    height
+    measurements
+    fake_tits
+    career_length
+    tattoos
+    piercings
+    aliases
+  }
+  studio{
+    id
+    name
+    url
+    stash_ids{
+      endpoint
+      stash_id
+    }
+  }
+tags{
+    id
+    name
+  }
+
+  stash_ids{
+    endpoint
+    stash_id
+  }
+  scene_markers{
+    id
+    title
+    seconds
+  }
+  movies{
+  scene_index
+  movie{
+  id
+  name
+  }
+  }
+}
+}
+}"""
+
+    variables = {"scene_filter": scene_filter,"filter":{"sort": sort,"direction": direction,"page":page,"per_page": per_page}}
+    result = __callGraphQL(query, variables)
+    for s in result["findScenes"]["scenes"]:
+        s['file']=s['files'][0]
+        scene_type(s)
+#        if 'ApiKey' in headers:
+#            rewrite_image_url(s)
+    return result
+
+
+
+def lookupScene(id):
+    query = """query findScene($scene_id: ID!){
+findScene(id: $scene_id){
+  id
+  title
+  details
+  url
+  date
+  rating
+  organized
+  o_counter
   interactive
   updated_at
   created_at
@@ -426,8 +547,6 @@ findScene(id: $scene_id){
   }
   galleries {
     id
-    checksum
-    path
     title
     url
     date
@@ -994,32 +1113,15 @@ name
     variables = {'input': input}
     result = __callGraphQL(query, variables)
 
-def createMarker(input):
+def updateStudio(input):
     query="""mutation sceneMarkerCreate($input: SceneMarkerCreateInput!) {
 sceneMarkerCreate(input: $input) {
-    id
-    title
+id
+scene
+title
     seconds
-    primary_tag{
-        id
-        name
     }
-  }
-}"""
-    variables = {'input': input}
-    result = __callGraphQL(query, variables)
-
-def updateMarker(input):
-    query="""mutation sceneMarkerUpdate($input: SceneMarkerUpdateInput!) {
-sceneMarkerUpdate(input: $input) {
-    id
-    title
-    seconds
-    primary_tag{
-        id
-        name
-    }
-  }
+}
 }"""
     variables = {'input': input}
     result = __callGraphQL(query, variables)
@@ -1780,58 +1882,6 @@ def heresphere_scene(scene_id):
     if request.method == 'POST' and 'tags' in request.json:
         # Save Ratings
         print("Saving tags:" + str(request.json['tags']))
-        for t in request.json['tags']:
-            if t['track']==0:
-                found_marker=None
-                previous_marker=None
-                for m in s["scene_markers"]:
-                    # Check for a marker with either the same start or end time as on the scene
-                    if t['start']-5000 > m['seconds']*1000 and t['start']-5000 < m['seconds']*1000:
-                        #updateTag
-                        found_marker=m
-                    if previous_marker is not None:
-                        if t['end'] - 5000 > previous_marker['seconds'] * 1000 and t['end'] - 5000 < previous_marker['seconds'] * 1000:
-                            found=True
-                            found_marker = previous_marker
-                    previous_marker=m
-                if previous_marker is not None:
-                    if t['end'] - 5000 > previous_marker['seconds'] * 1000 and t['end'] - 5000 < previous_marker['seconds'] * 1000:
-                        found_marker = previous_marker
-                if found_marker is not None:
-                    data={'id':found_marker['id'],'title':found_marker['title'],'seconds':found_marker['seconds'] * 1000,'scene_id':s['id'],'primary_tag_id':found_marker['primary_tag_id']}
-                    updateMarker(data)
-                else:
-                    #Create a new marker
-                    tag=None
-                    if t['name'].startswith('Tag:'):
-                        for tc in tags_cache.keys():
-                            if t['name'][4:].lower()==tc.lower():
-                                tag=tags_cache[tc]
-                                print("tag:"+tc)
-                                break
-                            if t['name'][4:].lower() in [x.lower() for x in tags_cache[tc]['aliases']]:
-                                tag = tags_cache[tc]
-                                print("tag:" + tc)
-                                break
-#                        tag=tags_cache[t['name'][4:]]
-                    else:
-
-                        for tc in tags_cache.keys():
-                            if t['name'].lower()==tc.lower():
-                                tag=tags_cache[tc]
-                                print("tag:"+tc)
-                                break
-                            if t['name'].lower() in [x.lower() for x in tags_cache[tc]['aliases']]:
-                                tag = tags_cache[tc]
-                                print("tag:" + tc)
-                                break
-                    #                       tag=tags_cache[t['name']]
-                    data={"title":t['name'],"seconds":t["start"]/1000, "scene_id":s["id"],"primary_tag_id":tag['id']}
-                    createMarker(data)
-
-
-
-
     if request.method == 'POST' and 'isFavorite' in request.json:
         if request.json['isFavorite']==True:
             s["tags"].append(cache['favorite_tag'])
