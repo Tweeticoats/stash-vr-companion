@@ -51,7 +51,10 @@ cache={"refresh_time":0,"scenes":[],"image_cache":{}}
 image_dir = os.getenv('CACHE_DIR', './cache')
 hsp_dir = os.getenv('HSP_DIR', './hsp')
 
-files_refactor = bool(os.getenv('FILES_REFACTOR','False'))
+files_refactor = False
+if os.getenv('FILES_REFACTOR'):
+    if os.getenv('FILES_REFACTOR')=='True':
+        files_refactor=True
 
 auth={}
 
