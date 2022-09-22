@@ -1002,6 +1002,9 @@ def scene_type(scene):
     elif 'FISHEYE' in [x["name"] for x in scene["tags"]]:
         scene["is3d"] = True
         scene["screenType"] = "fisheye"
+    if 'MONO' in [x["name"] for x in scene["tags"]]:
+        scene["is3d"] = False
+        scene.pop("stereoMode",None)
 
     if 'ApiKey' in headers:
         scene["heatmap"]='/heatmap_proxy/'+scene["id"]
@@ -1156,7 +1159,7 @@ def rewrite_image_url(scene):
 
 
 def setup():
-    tags = ["VR", "SBS", "TB", "export_deovr", "FLAT", "DOME", "SPHERE", "FISHEYE", "MKX200", "Favorite"]
+    tags = ["VR", "SBS", "TB", "export_deovr", "FLAT", "DOME", "SPHERE", "FISHEYE", "MKX200", "Favorite","MONO"]
     reload_filter_cache()
     for t in tags:
         if t.lower() not in [x.lower() for x in tags_cache.keys()]:
@@ -1658,20 +1661,25 @@ def refreshCache():
         if res["findScenes"]["count"] > per_page:
             for x in range (2,(res["findScenes"]["count"]//per_page +2)):
                 print("Fetching " + str(x*per_page) + " scenes")
-                res = get_scenes(scene_filter={
-                    "tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}},
+                res = get_scenes(scene_filter={"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}},
                                  sort="updated_at", direction="DESC", page=x, per_page=per_page)
                 scenes.extend(res["findScenes"]["scenes"])
         cache['scenes']=scenes
         if len(scenes)> 0:
-            cache['last_updated']=datetime.fromisoformat(scenes[0]["updated_at"].replace("Z",""))
+            date_str=scenes[0]["updated_at"].replace("Z","")
+            if '.' in date_str:
+                date_str=date_str[:date_str.index('.')]
+            cache['last_updated']=datetime.fromisoformat(date_str)
         else:
             cache['last_updated']=cache['refresh_time']
     else:
         #check the last updated scene
         res=get_scenes(scene_filter={"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}},sort="updated_at",direction="DESC",page=1,per_page=1)
         if res["findScenes"]["count"] > 0:
-            updated_at=datetime.fromisoformat(res["findScenes"]["scenes"][0]["updated_at"].replace("Z",""))
+            date_str=res["findScenes"]["scenes"][0]["updated_at"].replace("Z", "")
+            if '.' in date_str:
+                date_str=date_str[:date_str.index('.')]
+            updated_at=datetime.fromisoformat(date_str)
             if updated_at > cache['last_updated'] or len(cache["scenes"]) != res["findScenes"]["count"]:
                 print("Cache needs updating")
                 scenes = []

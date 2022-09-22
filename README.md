@@ -21,6 +21,7 @@ Most VR scenes are 180° with the left and right eye side by side, apply the tag
 * **RF52** - 3d 190° projection used by SLR
 * **SBS** - Side by Side with the left eye taking up the left half of the video. This is the default for 3d video's.
 * **TB** - Up Down with the left eye taking up the top half of the video.
+* **MONO** - Mono video with the same image for both eyes, commonly used with mono 360 videos
 
 ## Additional filter categories
 The default categories are Recent, 2D and VR. You can pin a studio and performers by adding a string to the studio description and a tag to the performer.
