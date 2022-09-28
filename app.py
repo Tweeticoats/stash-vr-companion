@@ -744,7 +744,8 @@ def updateScene(sceneData):
     data["date"] = sceneData["date"]
     data["rating"] = sceneData["rating"]
     data["organized"] = sceneData["organized"]
-    data["studio_id"] = sceneData["studio"]["id"]
+    if sceneData["studio"]:
+        data["studio_id"] = sceneData["studio"]["id"]
     data["gallery_ids"] = [x['id'] for x in  sceneData["galleries"]]
     data["performer_ids"]= [x['id'] for x in  sceneData["performers"]]
     data["movies"] = [{"id":x['movie']['id'],"scene_index":x["scene_index"]} for x in sceneData["movies"]]
