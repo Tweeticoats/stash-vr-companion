@@ -1076,7 +1076,8 @@ def createTagWithName(name):
     query = """
 mutation tagCreate($input:TagCreateInput!) {
 tagCreate(input: $input){
-id       
+id
+name       
 }
 }
 """
@@ -1085,7 +1086,9 @@ id
     }}
 
     result = __callGraphQL(query, variables)
-    return result["tagCreate"]["id"]
+    tag=result["tagCreate"]
+    tag['id']=int(tag['id'])
+    return tag
 
 def getStashConfig():
     query = """{
@@ -1959,6 +1962,9 @@ def heresphere_scene(scene_id):
                                 tag = tags_cache[tc]
                                 print("tag:" + tc)
                                 break
+                    if tag is None:
+                        tag=createTagWithName(t['name'])
+
                     #                       tag=tags_cache[t['name']]
                     data = {"title": t['name'], "seconds": t["start"] / 1000, "scene_id": s["id"],
                             "primary_tag_id": tag['id']}
@@ -2107,7 +2113,6 @@ def logout():
 
 
 
-
 setup()
 setup_image_cache()
 refreshCache()
@@ -2116,6 +2121,7 @@ refreshCache()
 sched = BackgroundScheduler(daemon=True)
 sched.add_job(refreshCache,'interval',minutes=5)
 sched.start()
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0')
