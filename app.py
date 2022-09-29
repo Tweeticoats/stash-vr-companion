@@ -1120,19 +1120,35 @@ name
     variables = {'input': input}
     result = __callGraphQL(query, variables)
 
-def updateStudio(input):
+def createMarker(input):
     query="""mutation sceneMarkerCreate($input: SceneMarkerCreateInput!) {
 sceneMarkerCreate(input: $input) {
-id
-scene
-title
+    id
+    title
     seconds
+    primary_tag{
+        id
+        name
     }
-}
+  }
 }"""
     variables = {'input': input}
     result = __callGraphQL(query, variables)
 
+def updateMarker(input):
+    query="""mutation sceneMarkerUpdate($input: SceneMarkerUpdateInput!) {
+sceneMarkerUpdate(input: $input) {
+    id
+    title
+    seconds
+    primary_tag{
+        id
+        name
+    }
+  }
+}"""
+    variables = {'input': input}
+    result = __callGraphQL(query, variables)
 
 
 
@@ -1894,6 +1910,61 @@ def heresphere_scene(scene_id):
     if request.method == 'POST' and 'tags' in request.json:
         # Save Ratings
         print("Saving tags:" + str(request.json['tags']))
+        for t in request.json['tags']:
+            if t['track'] == 0:
+                found_marker = None
+                previous_marker = None
+                for m in s["scene_markers"]:
+                    # Check for a marker with either the same start or end time as on the scene
+                    if t['start'] - 5000 > m['seconds'] * 1000 and t['start'] - 5000 < m['seconds'] * 1000:
+                        # updateTag
+                        found_marker = m
+                    if previous_marker is not None:
+                        if t['end'] - 5000 > previous_marker['seconds'] * 1000 and t['end'] - 5000 < previous_marker[
+                            'seconds'] * 1000:
+                            found = True
+                            found_marker = previous_marker
+                    previous_marker = m
+                if previous_marker is not None:
+                    if t['end'] - 5000 > previous_marker['seconds'] * 1000 and t['end'] - 5000 < previous_marker[
+                        'seconds'] * 1000:
+                        found_marker = previous_marker
+                if found_marker is not None:
+                    data = {'id': found_marker['id'], 'title': found_marker['title'],
+                            'seconds': found_marker['seconds'] * 1000, 'scene_id': s['id'],
+                            'primary_tag_id': found_marker['primary_tag_id']}
+                    updateMarker(data)
+                else:
+                    # Create a new marker
+                    tag = None
+                    if t['name'].startswith('Tag:'):
+                        for tc in tags_cache.keys():
+                            if t['name'][4:].lower() == tc.lower():
+                                tag = tags_cache[tc]
+                                print("tag:" + tc)
+                                break
+                            if t['name'][4:].lower() in [x.lower() for x in tags_cache[tc]['aliases']]:
+                                tag = tags_cache[tc]
+                                print("tag:" + tc)
+                                break
+                    #                        tag=tags_cache[t['name'][4:]]
+                    else:
+
+                        for tc in tags_cache.keys():
+                            if t['name'].lower() == tc.lower():
+                                tag = tags_cache[tc]
+                                print("tag:" + tc)
+                                break
+                            if t['name'].lower() in [x.lower() for x in tags_cache[tc]['aliases']]:
+                                tag = tags_cache[tc]
+                                print("tag:" + tc)
+                                break
+                    #                       tag=tags_cache[t['name']]
+                    data = {"title": t['name'], "seconds": t["start"] / 1000, "scene_id": s["id"],
+                            "primary_tag_id": tag['id']}
+                    createMarker(data)
+
+
     if request.method == 'POST' and 'isFavorite' in request.json:
         if request.json['isFavorite']==True:
             s["tags"].append(cache['favorite_tag'])
