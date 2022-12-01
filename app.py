@@ -13,6 +13,7 @@ from urllib3.exceptions import InsecureRequestWarning
 from flask_bcrypt import Bcrypt
 
 from PIL import Image
+from io import BytesIO
 
 app = Flask(__name__)
 bcrypt = Bcrypt(app)
@@ -1156,6 +1157,7 @@ sceneMarkerCreate(input: $input) {
 }"""
     variables = {'input': input}
     result = __callGraphQL(query, variables)
+    return result['sceneMarkerCreate']
 
 def updateMarker(input):
     query="""mutation sceneMarkerUpdate($input: SceneMarkerUpdateInput!) {
@@ -1171,6 +1173,7 @@ sceneMarkerUpdate(input: $input) {
 }"""
     variables = {'input': input}
     result = __callGraphQL(query, variables)
+    return result['sceneMarkerUpdate']
 
 
 def removeMarker(id):
@@ -1787,7 +1790,7 @@ def refreshCache():
 #                cache['scenes'][index]["paths"]["screenshot"] = '/image/' + str(s['id'])
                 cache['scenes'][index]["image"] = '/image/' + str(s['id'])
 
-                with Image.open(f) as im:
+                with Image.open(BytesIO(r.content)) as im:
                     im.thumbnail(thumbnail_size)
                     rgb_im=im.convert('RGB')
                     rgb_im.save(os.path.join(image_dir, s['id']+'.thumbnail'),'JPEG')
@@ -1806,7 +1809,7 @@ def refreshCache():
                         f.write(r.content)
                         f.close()
 
-                        with Image.open(f) as im:
+                        with Image.open(BytesIO(r.content)) as im:
                             im.thumbnail(thumbnail_size)
                             rgb_im=im.convert('RGB')
                             rgb_im.save(os.path.join(image_dir, s['id'] + '.thumbnail'),'JPEG')
@@ -1840,7 +1843,8 @@ def refreshCache():
                     cache['scenes'][index]["image"] = '/image/' + str(s['id'])
                     cache['image_cache'][s['id']] = {"file": os.path.join(image_dir, s['id']),
                                                      "mime": r.headers['Content-Type'], "updated": s["updated_at"]}
-                    with Image.open(os.path.join(image_dir, s['id'])) as im:
+
+                    with Image.open(BytesIO(r.content)) as im:
                         im.thumbnail(thumbnail_size)
                         rgb_im=im.convert('RGB')
                         rgb_im.save(os.path.join(image_dir, s['id'] + '.thumbnail'), 'JPEG')
@@ -1965,6 +1969,7 @@ def heresphere_auth():
 
 @app.route('/heresphere/<int:scene_id>',methods=['GET', 'POST'])
 def heresphere_scene(scene_id):
+
     scene = {}
     if 'ApiKey' in headers and request.method == 'POST':
 
@@ -1983,7 +1988,6 @@ def heresphere_scene(scene_id):
 
     else:
         scene["access"] = 1
-
 
     s=findScene(scene_id)
 
@@ -2021,14 +2025,15 @@ def heresphere_scene(scene_id):
                         found_marker = previous_marker
                 if found_marker is not None:
                     print(found_marker)
-                    data = {'id': found_marker['id'], 'title': found_marker['title'],
-                            'seconds': found_marker['seconds'] * 1000, 'scene_id': s['id'],
-                            'primary_tag_id': found_marker['primary_tag']['id']}
-                    print('Updating existing marker '+str(data)+str(previous_marker))
-                    updateMarker(data)
-                    for m in s["scene_markers"]:
-                        if m['id']==data['id']:
-                            m=data
+                    if 'id' in found_marker:
+                        data = {'id': found_marker['id'], 'title': found_marker['title'],
+                                'seconds': found_marker['seconds'] * 1000, 'scene_id': s['id'],
+                                'primary_tag_id': found_marker['primary_tag']['id']}
+                        print('Updating existing marker '+str(data)+str(previous_marker))
+                        updateMarker(data)
+                        for m in s["scene_markers"]:
+                            if m['id']==data['id']:
+                                m=data
                 else:
                     # Create a new marker
                     tag = None
@@ -2044,7 +2049,6 @@ def heresphere_scene(scene_id):
                                 break
                     #                        tag=tags_cache[t['name'][4:]]
                     else:
-
                         for tc in tags_cache.keys():
                             if t['name'].lower() == tc.lower():
                                 tag = tags_cache[tc]
@@ -2061,8 +2065,8 @@ def heresphere_scene(scene_id):
                     data = {"title": t['name'], "seconds": t["start"] / 1000, "scene_id": s["id"],
                             "primary_tag_id": tag['id']}
                     print('createing new marker: '+str(data))
-                    createMarker(data)
-                    s["scene_markers"].append(data)
+                    new_marker=createMarker(data)
+                    s["scene_markers"].append(new_marker)
 
 
     if request.method == 'POST' and 'isFavorite' in request.json:
