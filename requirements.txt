@@ -13,3 +13,4 @@ uWSGI==2.0.20
 APScheduler==3.9.1
 bcrypt==3.2.2
 Flask-Bcrypt==1.0.0
+Pillow==9.3.0

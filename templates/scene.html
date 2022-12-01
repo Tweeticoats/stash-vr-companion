@@ -37,7 +37,10 @@
         {% else %}
     <a href="/scene/{{ scene['id'] }}?enabled=True">Enable</a>
         {% endif %}
-
+    <ul>
+        {%  for sm in scene['scene_markers'] %}
+            <li>{{ sm['title'] }} - {{ sm['seconds'] }}    <a href="/scene/{{ scene['id'] }}?remove-marker={{ sm['id'] }}">remove</a></li>
+    {% endfor %}</ul>
     Description:<p>{{ scene['details'] }}</p>
 {% else %}
 <h1> Error connecting to stash</h1>

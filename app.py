@@ -5,13 +5,14 @@ import os
 import datetime
 import random
 import base64
-import copy
-from threading import Timer
+
 from pathlib import Path
 from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
 from urllib3.exceptions import InsecureRequestWarning
 from flask_bcrypt import Bcrypt
+
+from PIL import Image
 
 app = Flask(__name__)
 bcrypt = Bcrypt(app)
@@ -59,6 +60,9 @@ if os.getenv('FILES_REFACTOR'):
 auth={}
 
 needs_auth=False
+
+thumbnail_size=(472,290)
+
 
 def filter_studio(scenes,filter):
     return scenes
@@ -369,6 +373,10 @@ tags{
     id
     title
     seconds
+    primary_tag{
+    id
+    name
+    }
   }
   movies{
   scene_index
@@ -421,8 +429,6 @@ scenes {
     preview
     stream
     webp
-    vtt
-    chapters_vtt
     sprite
     funscript
     interactive_heatmap
@@ -490,6 +496,10 @@ tags{
     id
     title
     seconds
+       primary_tag{
+    id
+    name
+    }
   }
   movies{
   scene_index
@@ -514,6 +524,7 @@ tags{
 
 
 def lookupScene(id):
+
     query = """query findScene($scene_id: ID!){
 findScene(id: $scene_id){
   id
@@ -636,7 +647,6 @@ def updateScene(sceneData):
     rating
     organized
     o_counter
-    path
     interactive
     updated_at
     created_at
@@ -722,11 +732,15 @@ def updateScene(sceneData):
     endpoint
     stash_id
     }
-    scene_markers{
+  scene_markers{
     id
     title
     seconds
+    primary_tag{
+      id
+      name
     }
+  }
     movies{
     scene_index
     movie{
@@ -1076,8 +1090,13 @@ def createTagWithName(name):
     query = """
 mutation tagCreate($input:TagCreateInput!) {
 tagCreate(input: $input){
-id
-name       
+    id
+    name
+    aliases
+    children{
+     id
+      name
+    }     
 }
 }
 """
@@ -1086,9 +1105,9 @@ name
     }}
 
     result = __callGraphQL(query, variables)
-    tag=result["tagCreate"]
-    tag['id']=int(tag['id'])
-    return tag
+    print('res'+str(result) + ' - '+name)
+    tags_cache[result['tagCreate']['name']] = result['tagCreate']
+    return result["tagCreate"]
 
 def getStashConfig():
     query = """{
@@ -1151,6 +1170,14 @@ sceneMarkerUpdate(input: $input) {
   }
 }"""
     variables = {'input': input}
+    result = __callGraphQL(query, variables)
+
+
+def removeMarker(id):
+    query="""mutation sceneMarkerDestroy($id: ID!) {
+sceneMarkerDestroy(id: $id) 
+}"""
+    variables = {'id': id}
     result = __callGraphQL(query, variables)
 
 
@@ -1279,7 +1306,8 @@ def deovr():
     #            else:
     #                r["thumbnailUrl"] = s["paths"]["screenshot"]
     #            r["thumbnailUrl"] = request.url_root[:-1] +s["paths"]["screenshot"]
-                r["thumbnailUrl"] = request.url_root[:-1] +s["image"]
+#                r["thumbnailUrl"] = request.url_root[:-1] +s["image"]
+                r["thumbnailUrl"] = request.url_root[:-1] +s["thumb"]
     #            r["thumbnailUrl"] = '/image/' + s["id"]
                 r["video_url"] = request.url_root + 'deovr/' + s["id"]
                 res.append(r)
@@ -1300,7 +1328,8 @@ def show_post(scene_id):
 #    scene["thumbnailUrl"] = request.url_root +s["paths"]["screenshot"]
 #    scene["thumbnailUrl"] = '/image/' + s["id"]
 #    scene["thumbnailUrl"] = request.url_root +'image/'+  s["id"]
-    scene["thumbnailUrl"] = request.url_root[:-1] +s["image"]
+#    scene["thumbnailUrl"] = request.url_root[:-1] +s["image"]
+    scene["thumbnailUrl"] = request.url_root[:-1] +s["thumb"]
     scene["videoPreview"] = s["paths"]["preview"]
     scene["isFavorite"] = False
     scene["isWatchlist"] = False
@@ -1410,13 +1439,13 @@ def image_proxy():
 
 @app.route('/script_proxy/<int:scene_id>')
 def script_proxy(scene_id):
-    s = lookupScene(scene_id)
+    s = findScene(scene_id)
     r = requests.get(s["paths"]["funscript"],headers=headers, verify=app.config['VERIFY_FLAG'])
     return Response(r.content,content_type=r.headers['Content-Type'])
 
 @app.route('/heatmap_proxy/<int:scene_id>')
 def heatmap_proxy(scene_id):
-    s = lookupScene(scene_id)
+    s = findScene(scene_id)
     r = requests.get(s["paths"]["interactive_heatmap"],headers=headers, verify=app.config['VERIFY_FLAG'])
     return Response(r.content,content_type=r.headers['Content-Type'])
 
@@ -1510,6 +1539,11 @@ def scene(scene_id):
                 if t['name']=='export_deovr':
                     s['tags'].remove(t)
         s=updateScene(s)
+    if 'remove-marker' in request.args:
+        removeMarker(request.args.get('remove-marker'))
+        for m in s['scene_markers']:
+            if m['id']==request.args.get('remove-marker'):
+                s['scene_markers'].remove(m)
     enabled=False
     if "export_deovr" in [x["name"] for x in s['tags']]:
         enabled=True
@@ -1647,6 +1681,10 @@ def stash_metadata():
     return jsonify(data)
 @app.route('/info')
 def info():
+    for job in sched.get_jobs():
+        print("name: %s, trigger: %s, next run: %s, handler: %s" % (
+            job.name, job.trigger, job.next_run_time, job.func))
+
     refresh_time=datetime.now()-cache['refresh_time']
     res="cache refreshed "+str(refresh_time.total_seconds())+" seconds ago."
     res=res+"cache size="+str(len(cache['scenes']))+"<br/>"
@@ -1659,8 +1697,19 @@ def info():
     return res
 @app.route('/clear-cache')
 def clearCache():
-    refreshCache()
-    return redirect("/filter/Recent", code=302)
+    if 'manual-refresh' not in  [ job.id for job in job.namesched.get_jobs()]:
+        sched.add_job(refreshCache, id='manual-refresh')
+    else:
+        return """<html>
+    <head>
+        <meta http-equiv="refresh" content="3;url=/clear-cache" />
+    </head>
+    <body>
+        <h1>Redirecting in 3 seconds...</h1>
+    </body>
+</html>
+"""
+#        return redirect("/filter/Recent", code=302)
 
 
 
@@ -1668,7 +1717,6 @@ def refreshCache():
     print("Cache currently contains",len(cache['scenes']))
     print("refreshing cache")
     reload_filter_cache()
-
     cache['refresh_time']=datetime.now()
 
 
@@ -1738,6 +1786,13 @@ def refreshCache():
                                                  "mime": r.headers['Content-Type'], "updated": s["updated_at"]}
 #                cache['scenes'][index]["paths"]["screenshot"] = '/image/' + str(s['id'])
                 cache['scenes'][index]["image"] = '/image/' + str(s['id'])
+
+                with Image.open(f) as im:
+                    im.thumbnail(thumbnail_size)
+                    rgb_im=im.convert('RGB')
+                    rgb_im.save(os.path.join(image_dir, s['id']+'.thumbnail'),'JPEG')
+                    cache['scenes'][index]['thumb']='/thumb/' + str(s['id'])
+
                 modified = True
         else:
             if s['id'] in cache['image_cache']:
@@ -1750,12 +1805,28 @@ def refreshCache():
                     with open(os.path.join(image_dir, s['id']), "wb") as f:
                         f.write(r.content)
                         f.close()
+
+                        with Image.open(f) as im:
+                            im.thumbnail(thumbnail_size)
+                            rgb_im=im.convert('RGB')
+                            rgb_im.save(os.path.join(image_dir, s['id'] + '.thumbnail'),'JPEG')
+                            cache['scenes'][index]['thumb'] = '/thumb/' + str(s['id'])
+
                         modified=True
                     cache['scenes'][index]["image"] = '/image/' + str(s['id'])
                     cache['image_cache'][s['id']]["updated"]=s["updated_at"]
                 else:
                     cache['scenes'][index]["image"] = '/image/' + str(s['id'])
                     cache['image_cache'][s['id']]["updated"]=s["updated_at"]
+                    if not os.path.exists(os.path.join(image_dir, s['id']+ '.thumbnail')):
+                        with Image.open(os.path.join(image_dir, s['id'])) as im:
+                            im.thumbnail(thumbnail_size)
+                            rgb_im=im.convert('RGB')
+                            rgb_im.save(os.path.join(image_dir, s['id'] + '.thumbnail'),'JPEG')
+                            cache['scenes'][index]['thumb'] = '/thumb/' + str(s['id'])
+                    else:
+                        cache['scenes'][index]['thumb'] = '/thumb/' + str(s['id'])
+
             else:
 #                cache['scenes'][index]["image"] = '/image/' + str(s['id'])
 #                cache['image_cache'][s['id']]["updated"] = ["updated_at"]
@@ -1769,6 +1840,11 @@ def refreshCache():
                     cache['scenes'][index]["image"] = '/image/' + str(s['id'])
                     cache['image_cache'][s['id']] = {"file": os.path.join(image_dir, s['id']),
                                                      "mime": r.headers['Content-Type'], "updated": s["updated_at"]}
+                    with Image.open(os.path.join(image_dir, s['id'])) as im:
+                        im.thumbnail(thumbnail_size)
+                        rgb_im=im.convert('RGB')
+                        rgb_im.save(os.path.join(image_dir, s['id'] + '.thumbnail'), 'JPEG')
+                        cache['scenes'][index]['thumb'] = '/thumb/' + str(s['id'])
 
     reload_filter_studios()
     reload_filter_performer()
@@ -1817,6 +1893,13 @@ def images(scene_id):
         with open(cache['image_cache'][str(scene_id)]["file"],'rb') as f:
             image=f.read()
             return Response(image,content_type=cache['image_cache'][str(scene_id)]["mime"])
+    return "image not in cache"
+
+@app.route('/thumb/<int:scene_id>')
+def thumb(scene_id):
+    with open(os.path.join(image_dir, str(scene_id) + '.thumbnail'),'rb') as f:
+        image=f.read()
+        return Response(image,content_type='image/jpeg')
     return "image not in cache"
 
 
@@ -1914,12 +1997,16 @@ def heresphere_scene(scene_id):
         # Save Ratings
         print("Saving tags:" + str(request.json['tags']))
         for t in request.json['tags']:
-            if t['track'] == 0:
+            if t['name'] in ['']:
+                #Skip empty tags
+                True
+            elif t['track'] == 0:
                 found_marker = None
                 previous_marker = None
                 for m in s["scene_markers"]:
                     # Check for a marker with either the same start or end time as on the scene
-                    if t['start'] - 5000 > m['seconds'] * 1000 and t['start'] - 5000 < m['seconds'] * 1000:
+                    print("T: "+str(t)+' M: '+str(m))
+                    if t['start'] == m['seconds'] * 1000 and t['start'] - 5000 < m['seconds'] * 1000:
                         # updateTag
                         found_marker = m
                     if previous_marker is not None:
@@ -1933,10 +2020,15 @@ def heresphere_scene(scene_id):
                         'seconds'] * 1000:
                         found_marker = previous_marker
                 if found_marker is not None:
+                    print(found_marker)
                     data = {'id': found_marker['id'], 'title': found_marker['title'],
                             'seconds': found_marker['seconds'] * 1000, 'scene_id': s['id'],
-                            'primary_tag_id': found_marker['primary_tag_id']}
+                            'primary_tag_id': found_marker['primary_tag']['id']}
+                    print('Updating existing marker '+str(data)+str(previous_marker))
                     updateMarker(data)
+                    for m in s["scene_markers"]:
+                        if m['id']==data['id']:
+                            m=data
                 else:
                     # Create a new marker
                     tag = None
@@ -1968,7 +2060,9 @@ def heresphere_scene(scene_id):
                     #                       tag=tags_cache[t['name']]
                     data = {"title": t['name'], "seconds": t["start"] / 1000, "scene_id": s["id"],
                             "primary_tag_id": tag['id']}
+                    print('createing new marker: '+str(data))
                     createMarker(data)
+                    s["scene_markers"].append(data)
 
 
     if request.method == 'POST' and 'isFavorite' in request.json:
@@ -2008,7 +2102,8 @@ def heresphere_scene(scene_id):
         scene['hsp']=request.url_root+'hsp/'+str(scene_id)
     scene["title"] = s["title"]
     scene["description"] = s["details"]
-    scene["thumbnailImage"] = request.url_root[:-1] +s["image"]
+#    scene["thumbnailImage"] = request.url_root[:-1] +s["image"]
+    scene["thumbnailImage"] = request.url_root[:-1] +s["thumb"]
     scene["thumbnailVideo"] = s["paths"]["preview"]
     scene["dateReleased"]=s["date"]
     scene["dateAdded"] = s["date"]
@@ -2071,6 +2166,7 @@ def heresphere_scene(scene_id):
             previous_marker=m
         if previous_marker is not None:
             tags.append({"start": previous_marker["seconds"]*1000, "end": 0, "name": previous_marker["title"],"track": 0})
+            print('marker:' +str(m))
     for t in s["tags"]:
         tags.append({"name":"Category:"+t["name"]})
 
