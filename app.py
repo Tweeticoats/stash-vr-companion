@@ -1,4 +1,4 @@
-from flask import Flask,jsonify,render_template,request,Response,redirect,session
+from flask import Flask,jsonify,render_template,request,Response,redirect,session,send_file
 import requests
 import json
 import os
@@ -1901,10 +1901,17 @@ def images(scene_id):
 
 @app.route('/thumb/<int:scene_id>')
 def thumb(scene_id):
-    with open(os.path.join(image_dir, str(scene_id) + '.thumbnail'),'rb') as f:
-        image=f.read()
-        return Response(image,content_type='image/jpeg')
-    return "image not in cache"
+    s=findScene(scene_id)
+    if s["interactive"]:
+        thumb = Image.open(os.path.join(image_dir, str(scene_id) + '.thumbnail'))
+        r = requests.get(s["paths"]["interactive_heatmap"], headers=headers, verify=app.config['VERIFY_FLAG'])
+        with Image.open(BytesIO(r.content)) as im:
+            thumb.paste(im,(60,thumb.height-60))
+            img_io = BytesIO()
+            thumb.save(img_io,'JPEG')
+            img_io.seek(0)
+            return send_file(img_io, mimetype='image/jpeg')
+    return send_file(os.path.join(image_dir, str(scene_id) + '.thumbnail'))
 
 
 @app.route('/hsp/<int:scene_id>')
