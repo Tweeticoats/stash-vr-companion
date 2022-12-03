@@ -2034,7 +2034,7 @@ def heresphere_scene(scene_id):
                     print(found_marker)
                     if 'id' in found_marker:
                         data = {'id': found_marker['id'], 'title': found_marker['title'],
-                                'seconds': found_marker['seconds'] * 1000, 'scene_id': s['id'],
+                                'seconds': found_marker['seconds'] / 1000, 'scene_id': s['id'],
                                 'primary_tag_id': found_marker['primary_tag']['id']}
                         print('Updating existing marker '+str(data)+str(previous_marker))
                         updateMarker(data)

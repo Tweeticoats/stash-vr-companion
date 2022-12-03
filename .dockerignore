@@ -3,4 +3,8 @@ Dockerfile
 .gitignore
 build.sh
 run.sh
-cache
+cache/
+cache_g/
+cache_4/
+cache_6/
+hsp/
