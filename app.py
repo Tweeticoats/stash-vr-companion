@@ -47,6 +47,7 @@ tags_filters={}
 tags_cache={}
 config={}
 cache_refresh_time=None
+recent_scenes={}
 #scene_cache=[]
 cache={"refresh_time":0,"scenes":[],"image_cache":{}}
 
@@ -168,12 +169,18 @@ def sort_scenes_title(scenes):
 def sort_scenes_random(scenes):
     return random.sample(scenes,len(scenes))
 
+def sort_scenes_play_count(scenes):
+    return sorted(scenes,key=lambda x:x['play_count'] or 0 ,reverse=True)
+
+
 sort_methods= {'date':sort_scenes_date,
 'date_asc':sort_scenes_date_desc,
     'updated_at': sort_scenes_updated_at,
     'created_at': sort_scenes_created_at,
     'title': sort_scenes_title,
-    'random': sort_scenes_random}
+    'random': sort_scenes_random,
+    'play_count':sort_scenes_play_count
+               }
 
 filter_methods= {'default':filter_studio,
     'tag':tag_cleanup,
@@ -417,6 +424,10 @@ scenes {
   interactive
   updated_at
   created_at
+  last_played_at
+  resume_time
+  play_duration
+  play_count
   files {
     size
     duration
@@ -1179,6 +1190,13 @@ sceneMarkerUpdate(input: $input) {
 def removeMarker(id):
     query="""mutation sceneMarkerDestroy($id: ID!) {
 sceneMarkerDestroy(id: $id) 
+}"""
+    variables = {'id': id}
+    result = __callGraphQL(query, variables)
+
+def sceneIncrementPlayCount(id):
+    query="""mutation sceneIncrementPlayCount($id: ID!) {
+sceneIncrementPlayCount(id: $id) 
 }"""
     variables = {'id': id}
     result = __callGraphQL(query, variables)
@@ -2034,7 +2052,7 @@ def heresphere_scene(scene_id):
                     print(found_marker)
                     if 'id' in found_marker:
                         data = {'id': found_marker['id'], 'title': found_marker['title'],
-                                'seconds': found_marker['seconds'] / 1000, 'scene_id': s['id'],
+                                'seconds': found_marker['seconds'], 'scene_id': s['id'],
                                 'primary_tag_id': found_marker['primary_tag']['id']}
                         print('Updating existing marker '+str(data)+str(previous_marker))
                         updateMarker(data)
@@ -2073,6 +2091,7 @@ def heresphere_scene(scene_id):
                             "primary_tag_id": tag['id']}
                     print('createing new marker: '+str(data))
                     new_marker=createMarker(data)
+#                    new_marker=new_marker
                     s["scene_markers"].append(new_marker)
 
 
@@ -2107,6 +2126,9 @@ def heresphere_scene(scene_id):
     scene["writeTags"]=True
     scene["writeHSP"]=True
     scene["writeFavorite"] = True
+
+    scene['eventServer']=request.url_root+'eventServer'
+
 
 
     if os.path.exists(os.path.join(hsp_dir,str(scene_id) + ".hsp")):
@@ -2216,6 +2238,25 @@ def logout():
     return redirect("/login", code=302)
 
 
+
+@app.route('/eventServer', methods=['GET', 'POST'])
+def eventServer():
+    print(request.json)
+    id=request.json['id'].split('/')[-1]
+    if request.json['event']==1:
+        # first play event update the play cound
+        if id not in recent_scenes.keys():
+            sceneIncrementPlayCount(id)
+            recent_scenes[id]=datetime.now()
+    elif request.json['event']==3:
+        recent_scenes.pop(id,None)
+        print('scene no longer playing')
+
+
+
+
+
+    return ""
 
 
 
