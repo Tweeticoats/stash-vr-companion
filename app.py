@@ -1351,7 +1351,10 @@ def show_post(scene_id):
 #    scene["thumbnailUrl"] = request.url_root +'image/'+  s["id"]
 #    scene["thumbnailUrl"] = request.url_root[:-1] +s["image"]
     scene["thumbnailUrl"] = request.url_root[:-1] +s["thumb"]
-    scene["videoPreview"] = s["paths"]["preview"]
+    if 'ApiKey' in headers:
+        scene["videoPreview"] = s["paths"]["preview"]+"?apikey="+headers['ApiKey']
+    else:
+        scene["videoPreview"] = s["paths"]["preview"]
     scene["isFavorite"] = False
     scene["isWatchlist"] = False
 
@@ -2137,7 +2140,10 @@ def heresphere_scene(scene_id):
     scene["description"] = s["details"]
 #    scene["thumbnailImage"] = request.url_root[:-1] +s["image"]
     scene["thumbnailImage"] = request.url_root[:-1] +s["thumb"]
-    scene["thumbnailVideo"] = s["paths"]["preview"]
+    if 'ApiKey' in headers:
+        scene["thumbnailVideo"] = s["paths"]["preview"]+"?apikey="+headers['ApiKey']
+    else:
+        scene["thumbnailVideo"] = s["paths"]["preview"]
     scene["dateReleased"]=s["date"]
     scene["dateAdded"] = s["date"]
     scene["duration"]= s["file"]["duration"]*1000
