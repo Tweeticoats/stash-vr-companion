@@ -13,6 +13,7 @@ from urllib3.exceptions import InsecureRequestWarning
 from flask_bcrypt import Bcrypt
 
 from PIL import Image
+from PIL import UnidentifiedImageError
 from io import BytesIO
 
 app = Flask(__name__)
@@ -1864,12 +1865,14 @@ def refreshCache():
                     cache['scenes'][index]["image"] = '/image/' + str(s['id'])
                     cache['image_cache'][s['id']] = {"file": os.path.join(image_dir, s['id']),
                                                      "mime": r.headers['Content-Type'], "updated": s["updated_at"]}
-
-                    with Image.open(BytesIO(r.content)) as im:
-                        im.thumbnail(thumbnail_size)
-                        rgb_im=im.convert('RGB')
-                        rgb_im.save(os.path.join(image_dir, s['id'] + '.thumbnail'), 'JPEG')
-                        cache['scenes'][index]['thumb'] = '/thumb/' + str(s['id'])
+                    try:
+                        with Image.open(BytesIO(r.content)) as im:
+                            im.thumbnail(thumbnail_size)
+                            rgb_im=im.convert('RGB')
+                            rgb_im.save(os.path.join(image_dir, s['id'] + '.thumbnail'), 'JPEG')
+                            cache['scenes'][index]['thumb'] = '/thumb/' + str(s['id'])
+                    except UnidentifiedImageError:
+                            print('unknown image format')
 
     reload_filter_studios()
     reload_filter_performer()
