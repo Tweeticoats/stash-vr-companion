@@ -32,19 +32,13 @@
 {% endfor %}
 </div>
 <div class="nav-right">
-Switch to mode:
-{% if session['mode']=='deovr' %}
-    <a href="/gizmovr/Recent">gizmovr</a>
-{% else %}
-<a href="/filter/Recent">deovr</a>
-{% endif %}
+    <a href="/hsp">hsp</a>
     <a href="/clear-cache">clear-cache</a>
     <a href="/logout">Logout</a>
 </div>
-</div>
 {% endblock %}
-
+<div class="main">
   {% block content %}{% endblock %}
-
+</div>
 </body>
 </html>

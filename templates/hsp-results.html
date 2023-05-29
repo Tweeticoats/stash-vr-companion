@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    {{ status }}
+<h3>Results:</h3><ul>
+    {% for scene in job['results'] %}
+        <li>{{ scene['title'] }}{% if scene['details']|length>0  %}<br/>
+        <p>{{ scene['details'] }}</p>{% endif %}
+        {% if scene['hsp']|length > 0 %}
+        <ul>{% for hr in scene['hsp'] %}
+    <li>id: {{ hr['id'] }} - {{ hr['create_date'] }} <a href="/hsp-fetch?save={{ hr['id'] }}">save hsp file</a> </li>
+    {% endfor %}</ul>{% endif %}
+        </li>
+{% endfor %}</ul>
+{% endblock %}

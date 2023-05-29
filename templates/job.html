@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+      {% block headers %}
+            <meta http-equiv="refresh" content="1; URL='/hsp-fetch'" />
+      {% endblock %}
+{% block content %}
+    <h3>Running</h3>    <ul>
+    {% for l in job['log'] %}
+        <li>{{ l }}</li>
+    {% endfor %}</ul>
+{% endblock %}

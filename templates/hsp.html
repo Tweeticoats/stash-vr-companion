@@ -1,0 +1,8 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <a href="/hsp?pull=all">Pull all</a>    <a href="/hsp?submit=all">submit all</a><hr/>
+<h3>files:</h3><ul>{% for fi in file_info %}
+    <li><a href="/hsp/{{ fi['file'][:-4] }}">{{ fi['file'] }}</a>  <a href="/hsp?delete={{ fi['file'][:-4] }}">delete</a>   {%  if fi['scene'] is not none %} <a href="/hsp?submit={{ fi['scene']['id'] }}">submit</a>  - {{fi['scene']['title']  }} - <a href="/scene/{{ fi['scene']['id'] }}">{{ fi['scene']['id']}}{% endif %}</a></li>
+{% endfor %}</ul>
+{% endblock %}

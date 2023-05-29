@@ -50,7 +50,7 @@ config={}
 cache_refresh_time=None
 recent_scenes={}
 #scene_cache=[]
-cache={"refresh_time":0,"scenes":[],"image_cache":{}}
+cache={"refresh_time":0,"scenes":{},"image_cache":{},'hsp_fetch_job':None}
 
 image_dir = os.getenv('CACHE_DIR', './cache')
 hsp_dir = os.getenv('HSP_DIR', './hsp')
@@ -500,6 +500,13 @@ tags{
     id
     name
   }
+ studio{
+   name
+   stash_ids{
+      endpoint
+      stash_id
+   }
+ }
 
   stash_ids{
     endpoint
@@ -626,7 +633,6 @@ tags{
     id
     name
   }
-
   stash_ids{
     endpoint
     stash_id
@@ -786,17 +792,12 @@ def updateScene(sceneData):
     res= __callGraphQL(query, variables)["sceneUpdate"]
     res["image"] = '/image/' + str(sceneData["id"])
     scene_type(res)
-    cache['scenes'].remove(sceneData)
-    cache['scenes'].append(res)
+    cache['scenes'].pop(data['id'])
+    cache['scenes'][data['id']]=data
     return res
 
 
 
-def findScene(id):
-    for s in cache["scenes"]:
-        if s["id"]==str(id):
-            return s
-    return None
 
 def findTagIdWithName(name):
     query = """query {
@@ -1314,7 +1315,7 @@ def deovr():
 #                scenes=var(scenes,f)
             filter_func = filter_methods[f['filter_name']]
             sort_func = sort_methods[f['sort_name']]
-            scenes = sort_func(filter_func(cache['scenes'], f))
+            scenes = sort_func(filter_func(list(cache['scenes'].values()), f))
 
 
             for s in scenes:
@@ -1340,7 +1341,8 @@ def deovr():
 
 @app.route('/deovr/<int:scene_id>',methods=['GET', 'POST'])
 def show_post(scene_id):
-    s = findScene(scene_id)
+    s=cache['scenes'][scene_id]
+
 
     scene = {}
     scene["id"] = s["id"]
@@ -1464,13 +1466,13 @@ def image_proxy():
 
 @app.route('/script_proxy/<int:scene_id>')
 def script_proxy(scene_id):
-    s = findScene(scene_id)
+    s=cache['scenes'][scene_id]
     r = requests.get(s["paths"]["funscript"],headers=headers, verify=app.config['VERIFY_FLAG'])
     return Response(r.content,content_type=r.headers['Content-Type'])
 
 @app.route('/heatmap_proxy/<int:scene_id>')
 def heatmap_proxy(scene_id):
-    s = findScene(scene_id)
+    s=cache['scenes'][scene_id]
     r = requests.get(s["paths"]["interactive_heatmap"],headers=headers, verify=app.config['VERIFY_FLAG'])
     return Response(r.content,content_type=r.headers['Content-Type'])
 
@@ -1536,7 +1538,7 @@ def show_category(filter_id):
         filter_func=filter_methods[f['filter_name']]
         sort_func=sort_methods[f['sort_name']]
 
-        scenes=sort_func(filter_func(cache['scenes'],f))
+        scenes=sort_func(filter_func(list(cache['scenes'].values()),f))
         #        print(f)
         #            var=f['sort']
         #            scenes=var(scenes,f)
@@ -1549,7 +1551,8 @@ def show_category(filter_id):
 def scene(scene_id):
     if not isLoggedIn():
         return redirect("/login", code=302)
-    s = findScene(scene_id)
+    s=cache['scenes'][scene_id]
+
     if s is None:
         return redirect("/", code=302)
     if 'rating' in request.form:
@@ -1585,7 +1588,7 @@ def performer(performer_id):
     else:
         p['isPinned' ] = False
     scenes=[]
-    for s in cache["scenes"]:
+    for s in cache["scenes"].values():
         if performer_id in [int(x["id"]) for x in s["performers"]]:
             scenes.append(s)
 #        print(str(s["performers"]))
@@ -1607,7 +1610,7 @@ def gizmovr_category(filter_id):
             filter_func = filter_methods[f['filter_name']]
             sort_func = sort_methods[f['sort_name']]
 
-            scenes = sort_func(filter_func(cache['scenes'], f))
+            scenes = sort_func(filter_func(list(cache['scenes'].values()), f))
 
             session['filter']=f['name']
             base_path=request.base_url[:-len(request.path)]
@@ -1744,7 +1747,7 @@ def refreshCache():
     reload_filter_cache()
     cache['refresh_time']=datetime.now()
 
-
+    request_s = requests.Session()
     if len(cache['scenes']) ==0:
         scenes=[]
         per_page=100
@@ -1757,7 +1760,10 @@ def refreshCache():
                 res = get_scenes(scene_filter={"tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}},
                                  sort="updated_at", direction="DESC", page=x, per_page=per_page)
                 scenes.extend(res["findScenes"]["scenes"])
-        cache['scenes']=scenes
+#        cache['scenes']=scenes
+        cache['scenes'].clear()
+        for s in scenes:
+            cache['scenes'][int(s['id'])]=s
         if len(scenes)> 0:
             date_str=scenes[0]["updated_at"].replace("Z","")
             if '.' in date_str:
@@ -1789,8 +1795,11 @@ def refreshCache():
                             "tags": {"value": [tags_cache['export_deovr']['id']], "depth": 0, "modifier": "INCLUDES_ALL"}},
                             sort="updated_at", direction="DESC", page=x, per_page=per_page)
                         scenes.extend(res["findScenes"]["scenes"])
-                cache['scenes'] = scenes
+                cache['scenes'].clear()
                 cache['last_updated'] = updated_at
+                for s in scenes:
+                    cache['scenes'][int(s['id'])]=s
+
             else:
                 print("Cache up to date")
 
@@ -1799,24 +1808,24 @@ def refreshCache():
     print("Cache currently contains ",len(cache['scenes'])," scenes, checking image cache")
 
     modified=False
-    for index, s in enumerate(cache['scenes']):
+    for index, s in cache['scenes'].items():
         if not os.path.exists(os.path.join(image_dir, s['id'])):
             print("fetching image: " + s['id'])
             screenshot = s['paths']['screenshot']
-            r = requests.get(screenshot, headers=headers, verify=app.config['VERIFY_FLAG'])
+            r = request_s.get(screenshot, headers=headers, verify=app.config['VERIFY_FLAG'])
             with open(os.path.join(image_dir, s['id']), "xb") as f:
                 f.write(r.content)
                 f.close()
                 cache['image_cache'][s['id']] = {"file": os.path.join(image_dir, s['id']),
                                                  "mime": r.headers['Content-Type'], "updated": s["updated_at"]}
 #                cache['scenes'][index]["paths"]["screenshot"] = '/image/' + str(s['id'])
-                cache['scenes'][index]["image"] = '/image/' + str(s['id'])
+                cache['scenes'][int(s['id'])]["image"] = '/image/' + str(s['id'])
 
                 with Image.open(BytesIO(r.content)) as im:
                     im.thumbnail(thumbnail_size)
                     rgb_im=im.convert('RGB')
                     rgb_im.save(os.path.join(image_dir, s['id']+'.thumbnail'),'JPEG')
-                    cache['scenes'][index]['thumb']='/thumb/' + str(s['id'])
+                    cache['scenes'][int(s['id'])]['thumb']='/thumb/' + str(s['id'])
 
                 modified = True
         else:
@@ -1826,7 +1835,7 @@ def refreshCache():
                     screenshot = s['paths']['screenshot']
                     print(screenshot)
 
-                    r = requests.get(screenshot, headers=headers, verify=app.config['VERIFY_FLAG'])
+                    r = request_s.get(screenshot, headers=headers, verify=app.config['VERIFY_FLAG'])
                     with open(os.path.join(image_dir, s['id']), "wb") as f:
                         f.write(r.content)
                         f.close()
@@ -1835,42 +1844,42 @@ def refreshCache():
                             im.thumbnail(thumbnail_size)
                             rgb_im=im.convert('RGB')
                             rgb_im.save(os.path.join(image_dir, s['id'] + '.thumbnail'),'JPEG')
-                            cache['scenes'][index]['thumb'] = '/thumb/' + str(s['id'])
+                            cache['scenes'][int(s['id'])]['thumb'] = '/thumb/' + str(s['id'])
 
                         modified=True
-                    cache['scenes'][index]["image"] = '/image/' + str(s['id'])
+                    cache['scenes'][int(s['id'])]["image"] = '/image/' + str(s['id'])
                     cache['image_cache'][s['id']]["updated"]=s["updated_at"]
                 else:
-                    cache['scenes'][index]["image"] = '/image/' + str(s['id'])
+                    cache['scenes'][int(s['id'])]["image"] = '/image/' + str(s['id'])
                     cache['image_cache'][s['id']]["updated"]=s["updated_at"]
                     if not os.path.exists(os.path.join(image_dir, s['id']+ '.thumbnail')):
                         with Image.open(os.path.join(image_dir, s['id'])) as im:
                             im.thumbnail(thumbnail_size)
                             rgb_im=im.convert('RGB')
                             rgb_im.save(os.path.join(image_dir, s['id'] + '.thumbnail'),'JPEG')
-                            cache['scenes'][index]['thumb'] = '/thumb/' + str(s['id'])
+                            cache['scenes'][s['id']]['thumb'] = '/thumb/' + str(s['id'])
                     else:
-                        cache['scenes'][index]['thumb'] = '/thumb/' + str(s['id'])
+                        cache['scenes'][int(s['id'])]['thumb'] = '/thumb/' + str(s['id'])
 
             else:
 #                cache['scenes'][index]["image"] = '/image/' + str(s['id'])
 #                cache['image_cache'][s['id']]["updated"] = ["updated_at"]
 #                cache['scenes'][index]["paths"]["screenshot"] = '/image/' + str(s['id'])
-                r = requests.get(s['paths']['screenshot'], headers=headers, verify=app.config['VERIFY_FLAG'])
+                r = request_s.get(s['paths']['screenshot'], headers=headers, verify=app.config['VERIFY_FLAG'])
                 with open(os.path.join(image_dir, s['id']), "wb") as f:
                     f.write(r.content)
                     f.close()
                     modified=True
                     print("Replacing image: "+s['paths']['screenshot'])
-                    cache['scenes'][index]["image"] = '/image/' + str(s['id'])
-                    cache['image_cache'][s['id']] = {"file": os.path.join(image_dir, s['id']),
+                    cache['scenes'][int(s['id'])]["image"] = '/image/' + str(s['id'])
+                    cache['image_cache'][int(s['id'])] = {"file": os.path.join(image_dir, s['id']),
                                                      "mime": r.headers['Content-Type'], "updated": s["updated_at"]}
                     try:
                         with Image.open(BytesIO(r.content)) as im:
                             im.thumbnail(thumbnail_size)
                             rgb_im=im.convert('RGB')
                             rgb_im.save(os.path.join(image_dir, s['id'] + '.thumbnail'), 'JPEG')
-                            cache['scenes'][index]['thumb'] = '/thumb/' + str(s['id'])
+                            cache['scenes'][int(s['id'])]['thumb'] = '/thumb/' + str(s['id'])
                     except UnidentifiedImageError:
                             print('unknown image format')
 
@@ -1925,7 +1934,7 @@ def images(scene_id):
 
 @app.route('/thumb/<int:scene_id>')
 def thumb(scene_id):
-    s=findScene(scene_id)
+    s = cache['scenes'][scene_id]
     if s["interactive"]:
         thumb = Image.open(os.path.join(image_dir, str(scene_id) + '.thumbnail'))
         r = requests.get(s["paths"]["interactive_heatmap"], headers=headers, verify=app.config['VERIFY_FLAG'])
@@ -1944,9 +1953,108 @@ def hsp(scene_id):
     if os.path.exists(file):
         with open(file,'rb') as f:
             hsp=f.read()
-            return Response(hsp)
+            return Response(hsp,content_type='application/octet-stream')
     return "hsp file not found",404
 
+@app.route('/hsp')
+def hsps():
+    files = []
+    for f in os.listdir(hsp_dir):
+        if f.endswith(".hsp"):
+            files.append(f)
+
+    if 'submit' in request.args:
+        if request.args.get('submit')=='all':
+            request_s = requests.Session()
+            for f in files:
+                scene_id=int(f[:-4])
+                if scene_id in cache['scenes'].keys():
+                    scene=cache['scenes'][scene_id]
+                    new_scene = {'title': scene['title'], 'details': scene['details'], 'url': scene['url'],
+                                 'date': scene['date'], 'performers': [{'name': x['name']} for x in scene['performers']],
+                                 'tags': [{'name': x['name']} for x in scene['tags']], 'studio': scene['studio'],
+                                 'stash_ids': scene['stash_ids'],
+                                 'scene_markers': [{'title': x['title'], 'seconds': x['seconds'],
+                                                    'primary_tag': {'name': x['primary_tag']['name']}} for x in
+                                                   scene['scene_markers']]}
+                    with open(os.path.join(hsp_dir, f), 'rb') as fh:
+                        hsp = fh.read()
+                        new_scene['hsp']=base64.standard_b64encode(hsp).decode("ascii")
+                    request_s.post('https://timestamp.trade/submit-stash', json=new_scene)
+        else:
+            scene=cache['scenes'][int(request.args.get('submit'))]
+            print(scene.keys())
+            new_scene={'title':scene['title'],'details':scene['details'],'url':scene['url'],'date':scene['date'],'performers':[{'name':x['name']} for x in scene['performers']],
+                       'tags':[{'name':x['name']} for x in scene['tags']],'studio':scene['studio'],'stash_ids':scene['stash_ids'],
+                       'scene_markers':[{'title':x['title'],'seconds':x['seconds'],'primary_tag':{'name':x['primary_tag']['name']}} for x in scene['scene_markers']]}
+            file = os.path.join(hsp_dir, request.args.get('submit') + ".hsp")
+            if os.path.exists(file):
+                with open(file, 'rb') as f:
+                    hsp = f.read()
+                    new_scene['hsp']=base64.standard_b64encode(hsp).decode("ascii")
+            requests.post('https://timestamp.trade/submit-stash', json=new_scene)
+
+    elif 'pull' in request.args:
+        if request.args.get('pull')=='all':
+            schedule_process_fetch_hsp()
+            return redirect("/hsp-fetch", code=302)
+    if 'delete' in request.args:
+        file = os.path.join(hsp_dir, request.args.get('delete') + ".hsp")
+        if os.path.exists(file):
+            os.remove(file)
+            files.remove(request.args.get('delete') + ".hsp")
+    file_info=[]
+    for f in files:
+        scene_id = int(f[:-4])
+        if scene_id in cache['scenes'].keys():
+            file_info.append({'file':f,'scene':cache['scenes'][scene_id]})
+        else:
+            file_info.append({'file': f, 'scene': None})
+
+    return render_template('hsp.html', filters=config['filters'], file_info=file_info)
+
+
+@app.route('/hsp-fetch')
+def hsp_fetch():
+    status=""
+    if cache['hsp_fetch_job']['running']:
+        return render_template('job.html', filters=config['filters'],job=cache['hsp_fetch_job'])
+    if 'save' in request.args:
+        id=request.args.get('save')
+        for s in cache['hsp_fetch_job']['results']:
+            for r in s['hsp']:
+                if r['id']==request.args.get('save'):
+                    file = os.path.join(hsp_dir, s['local_id'] + ".hsp")
+                    print("Saving hsp to: %s", (file,))
+                    with open(file, "wb") as f:
+                        f.write(base64.b64decode(r['hsp']))
+                        f.close()
+                        cache['hsp_fetch_job']['results'].remove(s)
+                        status='hsp file saved <hr/>'
+
+    return render_template('hsp-results.html', filters=config['filters'],job=cache['hsp_fetch_job'],status=status)
+
+def schedule_process_fetch_hsp():
+    cache['hsp_fetch_job'] = {'running':True,'results':[],'log':[]}
+    sched.add_job(process_fetch_hsp)
+
+
+def process_fetch_hsp():
+    cache['job']='process'
+    request_s = requests.Session()
+    for s in cache['scenes'].values():
+        file = os.path.join(hsp_dir, s['id'] + ".hsp")
+        if not os.path.exists(file):
+            if 'stash_ids' in s:
+                for sid in s['stash_ids']:
+                    cache['hsp_fetch_job']['log'].append('querying for stash id %s '% (sid['stash_id'],))
+                    res = request_s.post('https://timestamp.trade/get-markers/' + sid['stash_id'])
+                    if res.status_code == 200:
+                        data = res.json()
+                        if 'hsp' in data:
+                            data['local_id']=s['id']
+                            cache['hsp_fetch_job']['results'].append(data)
+    cache['hsp_fetch_job']['running']=False
 
 @app.route('/heresphere',methods=['GET', 'POST'])
 def heresphere():
@@ -1975,7 +2083,7 @@ def heresphere():
         if f['enabled']:
             filter_func = filter_methods[f['filter_name']]
             sort_func = sort_methods[f['sort_name']]
-            scenes = sort_func(filter_func(cache['scenes'], f))
+            scenes = sort_func(filter_func(list(cache['scenes'].values()), f))
 
             #            if 'post' in f:
 #               var=f['post']
@@ -2020,7 +2128,7 @@ def heresphere_scene(scene_id):
     else:
         scene["access"] = 1
 
-    s=findScene(scene_id)
+    s=cache['scenes'][scene_id]
 
     if request.method == 'POST' and 'rating' in request.json:
         # Save Ratings
