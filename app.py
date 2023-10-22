@@ -276,7 +276,7 @@ def get_scenes_with_tag( tag):
     return get_scenes({"tags": {"value": [tagID], "modifier": "INCLUDES_ALL"}})
 
 def get_scenes(scene_filter, sort="updated_at",direction="DESC",per_page=100,page=1):
-    if files_refactor:
+    if True:
         return get_scenes_F(scene_filter,sort,direction,per_page,page)
     query = """query findScenes($scene_filter: SceneFilterType!, $filter: FindFilterType) {
 findScenes(scene_filter: $scene_filter filter: $filter ) {
@@ -487,7 +487,7 @@ findScene(id: $scene_id){
   details
   url
   date
-  rating
+  rating100
   organized
   o_counter
   interactive
@@ -520,7 +520,7 @@ findScene(id: $scene_id){
     url
     date
     details
-    rating
+    rating100
     organized
     studio {
       id
@@ -596,7 +596,7 @@ def updateScene(sceneData):
     details
     url
     date
-    rating
+    rating100
     organized
     o_counter
     interactive
@@ -623,28 +623,6 @@ def updateScene(sceneData):
     sprite
     funscript
     interactive_heatmap
-    }
-    galleries {
-    id
-    path
-    title
-    url
-    date
-    details
-    rating
-    organized
-    studio {
-    id
-    name
-    url
-    }
-    image_count
-    tags {
-    id
-    name
-    image_path
-    scene_count
-    }
     }
     performers {
     id
@@ -708,7 +686,7 @@ def updateScene(sceneData):
     data["details"] = sceneData["details"]
     data["url"] = sceneData["url"]
     data["date"] = sceneData["date"]
-    data["rating"] = sceneData["rating"]
+    data["rating100"] = sceneData["rating100"]
     data["organized"] = sceneData["organized"]
     if sceneData["studio"]:
         data["studio_id"] = sceneData["studio"]["id"]
@@ -1489,7 +1467,7 @@ def scene(scene_id):
     if s is None:
         return redirect("/", code=302)
     if 'rating' in request.form:
-        s['rating'] = request.form['rating']
+        s['rating100'] = request.form['rating']
         print("updating scene: "+str(s))
         s=updateScene(s)
     if 'enabled' in request.args:
@@ -2066,7 +2044,7 @@ def heresphere_scene(scene_id):
     if request.method == 'POST' and 'rating' in request.json:
         # Save Ratings
         print("Saving rating " + str(request.json['rating']))
-        s["rating"]=int(request.json['rating'])
+        s["rating100"]=int(request.json['rating'])
         print("updating scene: "+str(s))
         updateScene(s)
     if request.method == 'POST' and 'tags' in request.json:
@@ -2196,7 +2174,7 @@ def heresphere_scene(scene_id):
     scene["isFavorite"]=False
     if cache['favorite_tag']['id'] in [t['id'] for t in  s["tags"]]:
         scene["isFavorite"] = True
-    if s["rating"]:
+    if s["rating100"]:
         scene["rating"]=s["rating"]
     else:
         scene["rating"]=0
