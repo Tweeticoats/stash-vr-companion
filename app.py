@@ -95,7 +95,7 @@ def tag_cleanup_2d(scenes,filter):
 def tag_cleanup_star(scenes,filter):
     res=[]
     for s in scenes:
-        if s["rating"]==5:
+        if s["rating100"]==5:
             res.append(s)
     return res
 
@@ -283,8 +283,6 @@ findScenes(scene_filter: $scene_filter filter: $filter ) {
 count
 scenes {
   id
-  checksum
-  oshash
   title
   details
   url
@@ -317,21 +315,6 @@ scenes {
     funscript
     interactive_heatmap
   }
-  galleries {
-    id
-    checksum
-    path
-    title
-    url
-    date
-    details
-    rating
-    organized
-    studio {
-      id
-      name
-      url
-    }
     image_count
     tags {
       id
@@ -412,16 +395,12 @@ findScenes(scene_filter: $scene_filter filter: $filter ) {
 count
 scenes {
   id
-  checksum
-  oshash
   title
   details
-  url
   date
-  rating
   organized
+  rating100
   o_counter
-  path
   interactive
   updated_at
   created_at
@@ -430,6 +409,7 @@ scenes {
   play_duration
   play_count
   files {
+    basename
     size
     duration
     video_codec
@@ -446,46 +426,9 @@ scenes {
     funscript
     interactive_heatmap
   }
-  galleries {
-    id
-    title
-    url
-    date
-    details
-    rating
-    organized
-    studio {
-      id
-      name
-      url
-    }
-    image_count
-    tags {
-      id
-      name
-      image_path
-      scene_count
-    }
-  }
   performers {
     id
     name
-    gender
-    url
-    twitter
-    instagram
-    birthdate
-    ethnicity
-    country
-    eye_color
-    country
-    height
-    measurements
-    fake_tits
-    career_length
-    tattoos
-    piercings
-    aliases
   }
   studio{
     id
@@ -496,18 +439,17 @@ scenes {
       stash_id
     }
   }
-tags{
+  tags{
     id
     name
   }
- studio{
+  studio{
    name
    stash_ids{
       endpoint
       stash_id
    }
- }
-
+  }
   stash_ids{
     endpoint
     stash_id
@@ -516,17 +458,10 @@ tags{
     id
     title
     seconds
-       primary_tag{
-    id
-    name
+    primary_tag{
+      id
+      name
     }
-  }
-  movies{
-  scene_index
-  movie{
-  id
-  name
-  }
   }
 }
 }
@@ -657,8 +592,6 @@ def updateScene(sceneData):
     query = """mutation sceneUpdate($input:SceneUpdateInput!) {
     sceneUpdate(input: $input) {
     id
-    checksum
-    oshash
     title
     details
     url
@@ -670,6 +603,7 @@ def updateScene(sceneData):
     updated_at
     created_at
     file {
+    basename
     size
     duration
     video_codec
@@ -692,7 +626,6 @@ def updateScene(sceneData):
     }
     galleries {
     id
-    checksum
     path
     title
     url
@@ -987,53 +920,54 @@ def reload_filter_tag():
 
 
 def scene_type(scene):
-    if "180_180x180_3dh_LR" in scene["path"]:
-        scene["is3d"] = True
-        scene["screenType"] = "dome"
-        scene["stereoMode"] = "sbs"
-    elif "_MKX200" in scene["path"]:
-        scene["is3d"] = True
-        scene["screenType"] = "mkx200"
-        scene["stereoMode"] = "sbs"
-    elif "_FISHEYE190" in scene["path"]:
-        scene["is3d"] = True
-        scene["screenType"] = "rf52"
-        scene["stereoMode"] = "sbs"
-    else:
-        scene["screenType"] = "flat"
-        scene["is3d"] = False
-    if 'SBS' in [x["name"] for x in scene["tags"]]:
-        scene["stereoMode"] = "sbs"
-    elif 'TB' in [x["name"] for x in scene["tags"]]:
-        scene["stereoMode"] = "tb"
+    for f in scene["files"]:
+        if "180_180x180_3dh_LR" in f['basename']:
+            scene["is3d"] = True
+            scene["screenType"] = "dome"
+            scene["stereoMode"] = "sbs"
+        elif "_MKX200" in f['basename']:
+            scene["is3d"] = True
+            scene["screenType"] = "mkx200"
+            scene["stereoMode"] = "sbs"
+        elif "_FISHEYE190" in f['basename']:
+            scene["is3d"] = True
+            scene["screenType"] = "rf52"
+            scene["stereoMode"] = "sbs"
+        else:
+            scene["screenType"] = "flat"
+            scene["is3d"] = False
+        if 'SBS' in [x["name"] for x in scene["tags"]]:
+            scene["stereoMode"] = "sbs"
+        elif 'TB' in [x["name"] for x in scene["tags"]]:
+            scene["stereoMode"] = "tb"
 
-    if 'FLAT' in [x["name"] for x in scene["tags"]]:
-        scene["screenType"] = "flat"
-        scene["is3d"] = False
-    elif 'DOME' in [x["name"] for x in scene["tags"]]:
-        scene["is3d"] = True
-        scene["screenType"] = "dome"
-    elif 'SPHERE' in [x["name"] for x in scene["tags"]]:
-        scene["is3d"] = True
-        scene["screenType"] = "sphere"
-    elif 'MKX200' in [x["name"] for x in scene["tags"]]:
-        scene["is3d"] = True
-        scene["screenType"] = "mkx200"
-    elif '200°' in [x["name"] for x in scene["tags"]]:
-        scene["is3d"] = True
-        scene["screenType"] = "mkx200"
-    elif 'RF52' in [x["name"] for x in scene["tags"]]:
-        scene["is3d"] = True
-        scene["screenType"] = "rf52"
-    elif '190°' in [x["name"] for x in scene["tags"]]:
-        scene["is3d"] = True
-        scene["screenType"] = "rf52"
-    elif 'FISHEYE' in [x["name"] for x in scene["tags"]]:
-        scene["is3d"] = True
-        scene["screenType"] = "fisheye"
-    if 'MONO' in [x["name"] for x in scene["tags"]]:
-        scene["is3d"] = False
-        scene.pop("stereoMode",None)
+        if 'FLAT' in [x["name"] for x in scene["tags"]]:
+            scene["screenType"] = "flat"
+            scene["is3d"] = False
+        elif 'DOME' in [x["name"] for x in scene["tags"]]:
+            scene["is3d"] = True
+            scene["screenType"] = "dome"
+        elif 'SPHERE' in [x["name"] for x in scene["tags"]]:
+            scene["is3d"] = True
+            scene["screenType"] = "sphere"
+        elif 'MKX200' in [x["name"] for x in scene["tags"]]:
+            scene["is3d"] = True
+            scene["screenType"] = "mkx200"
+        elif '200°' in [x["name"] for x in scene["tags"]]:
+            scene["is3d"] = True
+            scene["screenType"] = "mkx200"
+        elif 'RF52' in [x["name"] for x in scene["tags"]]:
+            scene["is3d"] = True
+            scene["screenType"] = "rf52"
+        elif '190°' in [x["name"] for x in scene["tags"]]:
+            scene["is3d"] = True
+            scene["screenType"] = "rf52"
+        elif 'FISHEYE' in [x["name"] for x in scene["tags"]]:
+            scene["is3d"] = True
+            scene["screenType"] = "fisheye"
+        if 'MONO' in [x["name"] for x in scene["tags"]]:
+            scene["is3d"] = False
+            scene.pop("stereoMode",None)
 
     if 'ApiKey' in headers:
         scene["heatmap"]='/heatmap_proxy/'+scene["id"]
@@ -1069,7 +1003,6 @@ def performer_update(self,performer):
 mutation performerUpdate($input: PerformerUpdateInput!) {
 performerUpdate(input: $input) {
 id
-checksum
 name
 url
 gender
