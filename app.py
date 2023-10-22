@@ -55,7 +55,7 @@ cache={"refresh_time":0,"scenes":{},"image_cache":{},'hsp_fetch_job':None}
 image_dir = os.getenv('CACHE_DIR', './cache')
 hsp_dir = os.getenv('HSP_DIR', './hsp')
 
-files_refactor = False
+files_refactor = True
 if os.getenv('FILES_REFACTOR'):
     if os.getenv('FILES_REFACTOR')=='True':
         files_refactor=True
