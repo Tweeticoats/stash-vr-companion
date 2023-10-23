@@ -408,6 +408,7 @@ scenes {
   resume_time
   play_duration
   play_count
+  urls
   files {
     basename
     size
@@ -430,6 +431,14 @@ scenes {
     id
     name
   }
+    galleries {
+    id}
+    movies{
+    movie{
+    id
+    }
+    }
+    
   studio{
     id
     name
@@ -493,7 +502,8 @@ findScene(id: $scene_id){
   interactive
   updated_at
   created_at
-  file {
+  files {
+  basename
     size
     duration
     video_codec
@@ -594,7 +604,7 @@ def updateScene(sceneData):
     id
     title
     details
-    url
+    urls
     date
     rating100
     organized
@@ -602,7 +612,7 @@ def updateScene(sceneData):
     interactive
     updated_at
     created_at
-    file {
+  files {
     basename
     size
     duration
@@ -610,20 +620,16 @@ def updateScene(sceneData):
     audio_codec
     width
     height
-    framerate
-    bitrate
-    }
-    paths {
+  }
+  paths {
     screenshot
     preview
     stream
     webp
-    vtt
-    chapters_vtt
     sprite
     funscript
     interactive_heatmap
-    }
+  }
     performers {
     id
     name
@@ -657,7 +663,13 @@ def updateScene(sceneData):
     id
     name
     }
-    
+        galleries {
+    id}
+    movies{
+    movie{
+    id
+    }
+    }
     stash_ids{
     endpoint
     stash_id
@@ -684,7 +696,7 @@ def updateScene(sceneData):
     data["id"]=sceneData["id"]
     data["title"]=sceneData["title"]
     data["details"] = sceneData["details"]
-    data["url"] = sceneData["url"]
+    data["urls"] = sceneData["urls"]
     data["date"] = sceneData["date"]
     data["rating100"] = sceneData["rating100"]
     data["organized"] = sceneData["organized"]
@@ -703,7 +715,7 @@ def updateScene(sceneData):
     res= __callGraphQL(query, variables)["sceneUpdate"]
     res["image"] = '/image/' + str(sceneData["id"])
     scene_type(res)
-    cache['scenes'].pop(data['id'])
+#    cache['scenes'].pop(data['id'])
     cache['scenes'][data['id']]=data
     return res
 

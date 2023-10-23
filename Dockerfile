@@ -1,4 +1,4 @@
-FROM python:3.8-buster
+FROM python:3.10-bookworm
 label org.opencontainers.image.source = "https://github.com/Tweeticoats/stash-vr-companion"
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
