@@ -2187,7 +2187,7 @@ def heresphere_scene(scene_id):
     if cache['favorite_tag']['id'] in [t['id'] for t in  s["tags"]]:
         scene["isFavorite"] = True
     if s["rating100"]:
-        scene["rating"]=s["rating"]
+        scene["rating"]=s["rating100"]
     else:
         scene["rating"]=0
 
@@ -2252,9 +2252,9 @@ def heresphere_scene(scene_id):
 
     if s["interactive"]:
         if 'ApiKey' in headers:
-            scene["scripts"] = [{"name": Path(s['path']).stem + '.funscript', "url": request.url_root+'script_proxy/'+s['id'], "rating": 1}]
+            scene["scripts"] = [{"name": Path(s['files'][0]['basename']).stem + '.funscript', "url": request.url_root+'script_proxy/'+s['id'], "rating": 1}]
         else:
-            scene["scripts"]=[{"name": Path(s['path']).stem +'.funscript',"url": s["paths"]["funscript"],"rating":1}]
+            scene["scripts"]=[{"name": Path(s['files'][0]['basename']).stem +'.funscript',"url": s["paths"]["funscript"],"rating":1}]
 
     scene["tags"]=tags
 
