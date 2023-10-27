@@ -1358,12 +1358,12 @@ def show_post(scene_id):
 
     if s["interactive"]:
         scene["isScripted"] = True
-        scene["fleshlight"]=[{"title": Path(s['path']).stem +'.funscript',"url": s["paths"]["funscript"]}]
-
+        scene["fleshlight"]=[{"title": Path(s['files'][0]['basename']).stem +'.funscript',"url": s["paths"]["funscript"]}]
+        
         if 'ApiKey' in headers:
-            scene["fleshlight"] = [{"title": Path(s['path']).stem + '.funscript', "url": request.url_root+'script_proxy/'+s['id']}]
+            scene["fleshlight"] = [{"title": Path(s['files'][0]['basename']).stem + '.funscript', "url": request.url_root+'script_proxy/'+s['id']}]
         else:
-            scene["fleshlight"] = [{"title": Path(s['path']).stem + '.funscript', "url": s["paths"]["funscript"]}]
+            scene["fleshlight"] = [{"title": Path(s['files'][0]['basename']).stem + '.funscript', "url": s["paths"]["funscript"]}]
 
     else:
         scene["isScripted"] = False
