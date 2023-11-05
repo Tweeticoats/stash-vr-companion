@@ -167,6 +167,9 @@ def sort_scenes_created_at(scenes):
 def sort_scenes_title(scenes):
     return sorted(scenes,key=lambda x:x['title'] or '' ,reverse=True)
 
+def sort_scenes_interactive_speed(scenes):
+    return sorted(scenes,key=lambda x:x['interactive_speed'] or '' ,reverse=True)
+
 def sort_scenes_random(scenes):
     return random.sample(scenes,len(scenes))
 
@@ -180,7 +183,8 @@ sort_methods= {'date':sort_scenes_date,
     'created_at': sort_scenes_created_at,
     'title': sort_scenes_title,
     'random': sort_scenes_random,
-    'play_count':sort_scenes_play_count
+    'play_count':sort_scenes_play_count,
+    'interactive_speed':sort_scenes_interactive_speed
                }
 
 filter_methods= {'default':filter_studio,
@@ -402,6 +406,7 @@ scenes {
   rating100
   o_counter
   interactive
+  interactive_speed
   updated_at
   created_at
   last_played_at
@@ -500,6 +505,7 @@ findScene(id: $scene_id){
   organized
   o_counter
   interactive
+  interactive_speed
   updated_at
   created_at
   files {
@@ -610,6 +616,7 @@ def updateScene(sceneData):
     organized
     o_counter
     interactive
+    interactive_speed
     updated_at
     created_at
   files {
