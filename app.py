@@ -1183,6 +1183,8 @@ def setup():
 
     if 'filters' not in config:
         config['filters'] = default_filters
+    if 'title_as_filename' not in config:
+        config['title_as_filename']=False
 
 
 def isLoggedIn():
@@ -1243,7 +1245,10 @@ def deovr():
 
             for s in scenes:
                 r = {}
-                r["title"] = s["title"]
+                if config['title_as_filename']:
+                    r["title"] = s['files'][0]['basename']
+                else:
+                    r["title"] = s["title"]
                 r["videoLength"] = int(s["file"]["duration"])
     #            if 'ApiKey' in headers:
     #                screenshot_url = s["paths"]["screenshot"]
@@ -1269,7 +1274,10 @@ def show_post(scene_id):
 
     scene = {}
     scene["id"] = s["id"]
-    scene["title"] = s["title"]
+    if config['title_as_filename']:
+        scene["title"]=s['files'][0]['basename']
+    else:
+        scene["title"] = s["title"]
     scene["authorized"] = 1
     scene["description"] = s["details"]
 #    scene["thumbnailUrl"] = request.url_root +s["paths"]["screenshot"]
@@ -1861,12 +1869,13 @@ def thumb(scene_id):
     if s["interactive"]:
         thumb = Image.open(os.path.join(image_dir, str(scene_id) + '.thumbnail'))
         r = requests.get(s["paths"]["interactive_heatmap"], headers=headers, verify=app.config['VERIFY_FLAG'])
-        with Image.open(BytesIO(r.content)) as im:
-            thumb.paste(im,(60,thumb.height-60))
-            img_io = BytesIO()
-            thumb.save(img_io,'JPEG')
-            img_io.seek(0)
-            return send_file(img_io, mimetype='image/jpeg')
+        if r.status_code==200:
+            with Image.open(BytesIO(r.content)) as im:
+                thumb.paste(im,(60,thumb.height-60))
+                img_io = BytesIO()
+                thumb.save(img_io,'JPEG')
+                img_io.seek(0)
+                return send_file(img_io, mimetype='image/jpeg')
     return send_file(os.path.join(image_dir, str(scene_id) + '.thumbnail'))
 
 
@@ -2170,7 +2179,11 @@ def heresphere_scene(scene_id):
 
     if os.path.exists(os.path.join(hsp_dir,str(scene_id) + ".hsp")):
         scene['hsp']=request.url_root+'hsp/'+str(scene_id)
-    scene["title"] = s["title"]
+    if config['title_as_filename']:
+        scene["title"]=s['files'][0]['basename']
+    else:
+        scene["title"] = s["title"]
+
     scene["description"] = s["details"]
 #    scene["thumbnailImage"] = request.url_root[:-1] +s["image"]
     scene["thumbnailImage"] = request.url_root[:-1] +s["thumb"]
@@ -2276,6 +2289,14 @@ def login():
 def logout():
     session.pop('username', None)
     return redirect("/login", code=302)
+
+@app.route('/config', methods=['GET', 'POST'])
+def config_page ():
+    if request.method == 'POST':
+        config['title_as_filename']=bool(request.form.getlist('title_as_filename'))
+        saveConfig()
+    return render_template('config.html', filters=config['filters'], title_as_filename=config['title_as_filename'])
+
 
 
 

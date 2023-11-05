@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<form action="?" method="POST">
+<h3>Config</h3>
+    <label>set the scene title to the file name: <input name="title_as_filename" type="checkbox" value="{{ title_as_filename }}" {%  if title_as_filename %}checked {% endif %}  ></label>
+<br/>
+  <input type="submit" value="Submit">
+ </form>
+
+
+{% endblock %}
