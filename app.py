@@ -192,20 +192,8 @@ def sort_scenes_title(scenes):
     return sorted(scenes, key=lambda x: x["title"] or "", reverse=True)
 
 
-# def sort_scenes_interactive_speed(scenes):
-#     return sorted(scenes, key=lambda x: int(x["interactive_speed"] or 0), reverse=False)
-
-
 def sort_scenes_interactive_speed(scenes):
-  print("Sorting scenes...")
-
-  sorted_scenes = sorted(scenes, key=lambda x: int(x["interactive_speed"] or 0), reverse=True)
-
-  print("Sorted:")
-  for scene in sorted_scenes:
-    print(scene["title"], scene["interactive_speed"])
-
-  return sorted_scenes
+    return sorted(scenes, key=lambda x: int(x["interactive_speed"] or 0), reverse=False)
 
 
 def sort_scenes_random(scenes):
