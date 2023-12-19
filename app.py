@@ -174,14 +174,18 @@ def sort_scenes_play_count(scenes):
     return sorted(scenes,key=lambda x:x['play_count'] or 0 ,reverse=True)
 
 
+def sort_scenes_interactive_speed(scenes):
+    return sorted(scenes, key=lambda x: int(x["interactive_speed"] or 0), reverse=False)
+
 sort_methods= {'date':sort_scenes_date,
 'date_asc':sort_scenes_date_desc,
     'updated_at': sort_scenes_updated_at,
     'created_at': sort_scenes_created_at,
     'title': sort_scenes_title,
     'random': sort_scenes_random,
-    'play_count':sort_scenes_play_count
-               }
+    'play_count':sort_scenes_play_count,
+    "interactive_speed": sort_scenes_interactive_speed
+    }
 
 filter_methods= {'default':filter_studio,
     'tag':tag_cleanup,
@@ -292,6 +296,7 @@ scenes {
   o_counter
   path
   interactive
+  interactive_speed
   updated_at
   created_at
   file {
@@ -402,6 +407,7 @@ scenes {
   rating100
   o_counter
   interactive
+  interactive_speed
   updated_at
   created_at
   last_played_at
@@ -610,6 +616,7 @@ def updateScene(sceneData):
     organized
     o_counter
     interactive
+    interactive_speed
     updated_at
     created_at
   files {
@@ -1902,7 +1909,7 @@ def hsps():
                 scene_id=int(f[:-4])
                 if scene_id in cache['scenes'].keys():
                     scene=cache['scenes'][scene_id]
-                    new_scene = {'title': scene['title'], 'details': scene['details'], 'url': scene['url'],
+                    new_scene = {'title': scene['title'], 'details': scene['details'], 'urls': scene['urls'],
                                  'date': scene['date'], 'performers': [{'name': x['name']} for x in scene['performers']],
                                  'tags': [{'name': x['name']} for x in scene['tags']], 'studio': scene['studio'],
                                  'stash_ids': scene['stash_ids'],
