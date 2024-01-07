@@ -953,6 +953,12 @@ def scene_type(scene):
         elif '200°' in [x["name"] for x in scene["tags"]]:
             scene["is3d"] = True
             scene["screenType"] = "mkx200"
+        elif 'MKX220' in [x["name"] for x in scene["tags"]]:
+            scene["is3d"] = True
+            scene["screenType"] = "mkx220"
+        elif 'VRCA220' in [x["name"] for x in scene["tags"]]:
+            scene["is3d"] = True
+            scene["screenType"] = "vrca220"
         elif 'RF52' in [x["name"] for x in scene["tags"]]:
             scene["is3d"] = True
             scene["screenType"] = "rf52"
@@ -1159,7 +1165,7 @@ def rewrite_image_url(scene):
 
 
 def setup():
-    tags = ["VR", "SBS", "TB", "export_deovr", "FLAT", "DOME", "SPHERE", "FISHEYE", "MKX200", "Favorite","MONO"]
+    tags = ["VR", "SBS", "TB", "export_deovr", "FLAT", "DOME", "SPHERE", "FISHEYE", "MKX200", "Favorite","MONO",'MKX220','VRCA220']
     reload_filter_cache()
     for t in tags:
         if t.lower() not in [x.lower() for x in tags_cache.keys()]:
@@ -2221,6 +2227,7 @@ def heresphere_scene(scene_id):
     scene["media"] = [{"name": "stream", "sources": [vs]}]
 
     if "screenType" in s:
+
         scene["projection"] = s["screenType"]
     if "stereoMode" in s:
         scene["stereo"] = s["stereoMode"]
@@ -2234,7 +2241,13 @@ def heresphere_scene(scene_id):
             scene["projection"]="equirectangular360"
         elif s["screenType"] == "mkx200":
             scene["projection"]="fisheye"
+            scene["lens"]="MKX200"
+        elif s["screenType"] == "mkx220":
+            scene["projection"]="fisheye"
             scene["lens"]="MKX220"
+        elif s["screenType"] == "vrca220":
+            scene["projection"]="fisheye"
+            scene["lens"]="VRCA220"
         elif s["screenType"] == "rf52":
             scene["projection"]="fisheye"
             scene["lens"]="rf52"
