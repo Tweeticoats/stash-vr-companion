@@ -2282,6 +2282,8 @@ def heresphere_scene(scene_id):
         tags.append( {"name": "Talent:"+p["name"]})
     if s["studio"]:
         tags.append({"name":"Studio:"+s["studio"]["name"]})
+    if s["rating100"]:
+        tags.append({"name": "Rating:"+str(int(s["rating100"]/20))})
 
     if s["interactive"]:
         if 'ApiKey' in headers:
