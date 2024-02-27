@@ -2005,9 +2005,9 @@ def process_fetch_hsp():
 def heresphere():
     data = {}
 
-    if 'ApiKey' in headers and request.method == 'POST':
+    if 'ApiKey' in headers:
 
-        if request.json['username']==auth['username'] and bcrypt.check_password_hash(auth['password'], request.json['password']):
+       if request.is_json and request.json['username']==auth['username'] and bcrypt.check_password_hash(auth['password'], request.json['password']):
             data["access"] = 1
         elif 'Auth-Token' in request.headers:
             if request.headers['Auth-Token']==headers['ApiKey']:
@@ -2039,7 +2039,7 @@ def heresphere():
 @app.route('/heresphere/auth',methods=['POST'])
 def heresphere_auth():
     data = {}
-    if 'ApiKey' in headers and request.method == 'POST':
+    if 'ApiKey' in headers:
 
         print("here: "+str(request.json)+request.json['username']+"-"+request.json['username'])
         if request.json['username']==auth['username'] and bcrypt.check_password_hash(auth['password'], request.json['password']):
@@ -2055,10 +2055,10 @@ def heresphere_auth():
 def heresphere_scene(scene_id):
 
     scene = {}
-    if 'ApiKey' in headers and request.method == 'POST':
+    if 'ApiKey' in headers:
 
-        print("scene: "+str(request.json)+request.json['username']+"-"+request.json['username'])
-        if request.json['password']==headers['ApiKey']:
+        #print("scene: "+str(request.json)+request.json['username']+"-"+request.json['username'])
+        if request.is_json and request.json['username']==auth['username'] and bcrypt.check_password_hash(auth['password'], request.json['password']):
             scene["access"] = 1
             print("Successful login")
         elif 'Auth-Token' in request.headers:
