@@ -340,13 +340,13 @@ scenes {
     country
     eye_color
     country
-    height
+    height_cm
     measurements
     fake_tits
     career_length
     tattoos
     piercings
-    aliases
+    alias_list
   }
   studio{
     id
@@ -563,13 +563,13 @@ findScene(id: $scene_id){
     country
     eye_color
     country
-    height
+    height_cm
     measurements
     fake_tits
     career_length
     tattoos
     piercings
-    aliases
+    alias_list
   }
   studio{
     id
@@ -649,13 +649,13 @@ def updateScene(sceneData):
     country
     eye_color
     country
-    height
+    height_cm
     measurements
     fake_tits
     career_length
     tattoos
     piercings
-    aliases
+    alias_list
     }
     studio{
     id
@@ -772,13 +772,13 @@ def findPerformerWithID(id):
     country
     eye_color
     country
-    height
+    height_cm
     measurements
     fake_tits
     career_length
     tattoos
     piercings
-    aliases
+    alias_list
     image_path
     tags{
       id
@@ -1015,13 +1015,13 @@ birthdate
 ethnicity
 country
 eye_color
-height
+height_cm
 measurements
 fake_tits
 career_length
 tattoos
 piercings
-aliases
+alias_list
 favorite
 image_path
 scene_count
@@ -2078,7 +2078,7 @@ def heresphere_scene(scene_id):
     if request.method == 'POST' and 'rating' in request.json:
         # Save Ratings
         print("Saving rating " + str(request.json['rating']))
-        s["rating100"]=int(request.json['rating'])
+        s["rating100"]=int(request.json['rating'])*20
         print("updating scene: "+str(s))
         updateScene(s)
     if request.method == 'POST' and 'tags' in request.json:
@@ -2213,7 +2213,7 @@ def heresphere_scene(scene_id):
     if cache['favorite_tag']['id'] in [t['id'] for t in  s["tags"]]:
         scene["isFavorite"] = True
     if s["rating100"]:
-        scene["rating"]=s["rating100"]
+        scene["rating"]=s["rating100"]/20
     else:
         scene["rating"]=0
 
@@ -2282,6 +2282,8 @@ def heresphere_scene(scene_id):
         tags.append( {"name": "Talent:"+p["name"]})
     if s["studio"]:
         tags.append({"name":"Studio:"+s["studio"]["name"]})
+    if s["rating100"]:
+        tags.append({"name": "Rating:"+str(int(s["rating100"]/20))})
 
     if s["interactive"]:
         if 'ApiKey' in headers:
