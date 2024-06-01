@@ -107,7 +107,7 @@ def tag_cleanup_2d(scenes, filter):
 def tag_cleanup_star(scenes, filter):
     res = []
     for s in scenes:
-        if s["rating100"] == 5:
+        if s["rating100"]==100:
             res.append(s)
     return res
 
@@ -377,13 +377,13 @@ scenes {
     country
     eye_color
     country
-    height
+    height_cm
     measurements
     fake_tits
     career_length
     tattoos
     piercings
-    aliases
+    alias_list
   }
   studio{
     id
@@ -618,13 +618,13 @@ findScene(id: $scene_id){
     country
     eye_color
     country
-    height
+    height_cm
     measurements
     fake_tits
     career_length
     tattoos
     piercings
-    aliases
+    alias_list
   }
   studio{
     id
@@ -704,13 +704,13 @@ def updateScene(sceneData):
     country
     eye_color
     country
-    height
+    height_cm
     measurements
     fake_tits
     career_length
     tattoos
     piercings
-    aliases
+    alias_list
     }
     studio{
     id
@@ -829,13 +829,13 @@ def findPerformerWithID(id):
     country
     eye_color
     country
-    height
+    height_cm
     measurements
     fake_tits
     career_length
     tattoos
     piercings
-    aliases
+    alias_list
     image_path
     tags{
       id
@@ -1010,6 +1010,12 @@ def scene_type(scene):
         elif "200°" in [x["name"] for x in scene["tags"]]:
             scene["is3d"] = True
             scene["screenType"] = "mkx200"
+        elif "MKX220" in [x["name"] for x in scene["tags"]]:
+            scene["is3d"] = True
+            scene["screenType"] = "mkx220"
+        elif "VRCA220" in [x["name"] for x in scene["tags"]]:
+            scene["is3d"] = True
+            scene["screenType"] = "vrca220"
         elif "RF52" in [x["name"] for x in scene["tags"]]:
             scene["is3d"] = True
             scene["screenType"] = "rf52"
@@ -1066,13 +1072,13 @@ birthdate
 ethnicity
 country
 eye_color
-height
+height_cm
 measurements
 fake_tits
 career_length
 tattoos
 piercings
-aliases
+alias_list
 favorite
 image_path
 scene_count
@@ -1235,7 +1241,9 @@ def setup():
         "MKX200",
         "Favorite",
         "MONO",
-    ]
+        "MKX220",
+        "VRCA220"]
+
     reload_filter_cache()
 
     # Convert the existing tags to lower case for a case-insensitive comparison
@@ -1560,7 +1568,7 @@ def show_category(filter_id):
         index = config["filters"].index(f)
         config["filters"].pop(index)
         config["filters"].insert(index - 1, f)
-        print("move left: " + str(config["filters"]))
+        print("move left: " + str(config["filters"/]))
         saveConfig()
     elif request.args.get("move") == "right":
         index = config["filters"].index(f)
@@ -2285,10 +2293,9 @@ def process_fetch_hsp():
 def heresphere():
     data = {}
 
-    if "ApiKey" in headers and request.method == "POST":
-        if request.json["username"] == auth["username"] and bcrypt.check_password_hash(
-            auth["password"], request.json["password"]
-        ):
+
+    if 'ApiKey' in headers:
+        if request.is_json and request.json['username'] == auth['username'] and bcrypt.check_password_hash(auth['password'], request.json['password']):
             data["access"] = 1
         elif "Auth-Token" in request.headers:
             if request.headers["Auth-Token"] == headers["ApiKey"]:
@@ -2331,17 +2338,10 @@ def heresphere():
 @app.route("/heresphere/auth", methods=["POST"])
 def heresphere_auth():
     data = {}
-    if "ApiKey" in headers and request.method == "POST":
-        print(
-            "here: "
-            + str(request.json)
-            + request.json["username"]
-            + "-"
-            + request.json["username"]
-        )
-        if request.json["username"] == auth["username"] and bcrypt.check_password_hash(
-            auth["password"], request.json["password"]
-        ):
+    if 'ApiKey' in headers:
+
+#        print("here: "+str(request.json)+request.json['username']+"-"+request.json['username'])
+        if request.json['username'] == auth['username'] and bcrypt.check_password_hash(auth['password'], request.json['password']):
             data["access"] = 1
             data["auth-token"] = headers["ApiKey"]
             print("Successful login")
@@ -2355,15 +2355,10 @@ def heresphere_auth():
 @app.route("/heresphere/<int:scene_id>", methods=["GET", "POST"])
 def heresphere_scene(scene_id):
     scene = {}
-    if "ApiKey" in headers and request.method == "POST":
-        print(
-            "scene: "
-            + str(request.json)
-            + request.json["username"]
-            + "-"
-            + request.json["username"]
-        )
-        if request.json["password"] == headers["ApiKey"]:
+    if 'ApiKey' in headers:
+
+        #print("scene: "+str(request.json)+request.json['username']+"-"+request.json['username'])
+        if request.is_json and request.json['username']==auth['username'] and bcrypt.check_password_hash(auth['password'], request.json['password']):
             scene["access"] = 1
             print("Successful login")
         elif "Auth-Token" in request.headers:
@@ -2381,9 +2376,10 @@ def heresphere_scene(scene_id):
 
     if request.method == "POST" and "rating" in request.json:
         # Save Ratings
-        print("Saving rating " + str(request.json["rating"]))
-        s["rating100"] = int(request.json["rating"])
-        print("updating scene: " + str(s))
+
+        print("Saving rating " + str(request.json['rating']))
+        s["rating100"]=int(request.json['rating'])*20
+        print("updating scene: "+str(s))
         updateScene(s)
     if request.method == "POST" and "tags" in request.json:
         # Save Ratings
@@ -2533,7 +2529,7 @@ def heresphere_scene(scene_id):
     if cache["favorite_tag"]["id"] in [t["id"] for t in s["tags"]]:
         scene["isFavorite"] = True
     if s["rating100"]:
-        scene["rating"] = s["rating100"]
+        scene["rating"]=s["rating100"]/20
     else:
         scene["rating"] = 0
 
@@ -2547,6 +2543,7 @@ def heresphere_scene(scene_id):
     scene["media"] = [{"name": "stream", "sources": [vs]}]
 
     if "screenType" in s:
+
         scene["projection"] = s["screenType"]
     if "stereoMode" in s:
         scene["stereo"] = s["stereoMode"]
@@ -2559,8 +2556,14 @@ def heresphere_scene(scene_id):
         if s["screenType"] == "sphere":
             scene["projection"] = "equirectangular360"
         elif s["screenType"] == "mkx200":
-            scene["projection"] = "fisheye"
-            scene["lens"] = "MKX220"
+            scene["projection"]="fisheye"
+            scene["lens"]="MKX200"
+        elif s["screenType"] == "mkx220":
+            scene["projection"]="fisheye"
+            scene["lens"]="MKX220"
+        elif s["screenType"] == "vrca220":
+            scene["projection"]="fisheye"
+            scene["lens"]="VRCA220"
         elif s["screenType"] == "rf52":
             scene["projection"] = "fisheye"
             scene["lens"] = "rf52"
@@ -2604,6 +2607,8 @@ def heresphere_scene(scene_id):
         tags.append({"name": "Talent:" + p["name"]})
     if s["studio"]:
         tags.append({"name": "Studio:" + s["studio"]["name"]})
+    if s["rating100"]:
+        tags.append({"name": "Rating:"+str(int(s["rating100"]/20))})
 
     if s["interactive"]:
         if "ApiKey" in headers:
