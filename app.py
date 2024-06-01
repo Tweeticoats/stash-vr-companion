@@ -25,6 +25,11 @@ from PIL import Image
 from PIL import UnidentifiedImageError
 from io import BytesIO
 
+import logging
+
+log = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
 app = Flask(__name__)
 bcrypt = Bcrypt(app)
 
@@ -776,7 +781,7 @@ def updateScene(sceneData):
     #        with open(cache['image_cache'][str(sceneData["id"])]["file"],'rb') as f:
     #            data["cover_image"]=base64.b64encode(f.read()).decode()
     variables = {"input": data}
-    #    print(data)
+    #    lod.debug(data)
     res = __callGraphQL(query, variables)["sceneUpdate"]
     res["image"] = "/image/" + str(sceneData["id"])
     scene_type(res)
@@ -1110,7 +1115,7 @@ tagCreate(input: $input){
     variables = {"input": {"name": name}}
 
     result = __callGraphQL(query, variables)
-    print("res" + str(result) + " - " + name)
+    log.debug("res" + str(result) + " - " + name)
     tags_cache[result["tagCreate"]["name"]] = result["tagCreate"]
     return result["tagCreate"]
 
@@ -1252,26 +1257,26 @@ def setup():
     for t in tags:
         # Check for the tag case-insensitively
         if t.lower() not in existing_tags_lower:
-            print("Creating tag " + t)
+            log.info("Creating tag " + t)
             try:
                 # Attempt to create the tag, handle the exception if it fails (e.g., if the tag exists)
                 createTagWithName(t)
             except Exception as e:
-                print(f"Could not create tag {t}: {e}")
+                log.debug(f"Could not create tag {t}: {e}")
 
     if "ApiKey" in headers:
         cfg = getStashConfig()
         auth["username"] = cfg["configuration"]["general"]["username"]
         auth["password"] = cfg["configuration"]["general"]["password"]
     reload_studios()
-    #    print(str(studios))
+    #    dog.debug(str(studios))
     for s in studios:
         if s["name"] == "vr-companion-config":
             config["config_studio"] = int(s["id"])
             if len(s["details"]) > 0:
-                print("Loading config from stash: " + s["details"])
+                log.info("Loading config from stash: " + s["details"])
                 config.update(json.loads(s["details"]))
-                print("final config:" + str(config))
+                log.info("final config:" + str(config))
 
                 for df in default_filters:
                     found = False
@@ -1568,27 +1573,27 @@ def show_category(filter_id):
         index = config["filters"].index(f)
         config["filters"].pop(index)
         config["filters"].insert(index - 1, f)
-        print("move left: " + str(config["filters"/]))
+#        log.debug("move left: " + str(config["filters"]))
         saveConfig()
     elif request.args.get("move") == "right":
         index = config["filters"].index(f)
         config["filters"].pop(index)
         config["filters"].insert(index + 1, f)
         #        config['filters']=config['filters'][index+1:]+config['filters'][:index+1]
-        print("move right: " + str(config["filters"]))
+#        log.debug("move right: " + str(config["filters"]))
         saveConfig()
 
     if "sort_name" in request.form:
         sort_name = request.form["sort_name"]
         f["sort_name"] = sort_name
         #        f['sort']=sort_methods[sort_name]
-        #        print(f)
+        #        log.debug(f)
         saveConfig()
     if "filter_name" in request.form:
         filter_name = request.form["filter_name"]
         f["filter_name"] = filter_name
         #        f['sort']=sort_methods[sort_name]
-        #        print(f)
+        #        log.debug(f)
         saveConfig()
 
     session["mode"] = "deovr"
@@ -1597,13 +1602,13 @@ def show_category(filter_id):
         #            scenes = get_scenes(f['filter'])
         #        scenes=cache['scenes']
 
-        #        print (f)
+        #        log.debug (f)
         #        if 'post' in f:
         filter_func = filter_methods[f["filter_name"]]
         sort_func = sort_methods[f["sort_name"]]
 
         scenes = sort_func(filter_func(list(cache["scenes"].values()), f))
-        #        print(f)
+        #        log.debug(f)
         #            var=f['sort']
         #            scenes=var(scenes,f)
         session["filter"] = f["name"]
@@ -1628,7 +1633,7 @@ def scene(scene_id):
         return redirect("/", code=302)
     if "rating" in request.form:
         s["rating100"] = request.form["rating"]
-        print("updating scene: " + str(s))
+        log.info("updating scene: " + str(s))
         s = updateScene(s)
     if "enabled" in request.args:
         if request.args.get("enabled") == "True":
@@ -1665,8 +1670,8 @@ def performer(performer_id):
     for s in cache["scenes"].values():
         if performer_id in [int(x["id"]) for x in s["performers"]]:
             scenes.append(s)
-    #        print(str(s["performers"]))
-    #    print(scenes)
+    #        log.debug(str(s["performers"]))
+    #    log.debug(scenes)
     return render_template(
         "performer.html", performer=p, filters=config["filters"], scenes=scenes
     )
@@ -1797,7 +1802,7 @@ def stash_metadata():
 @app.route("/info")
 def info():
     for job in sched.get_jobs():
-        print(
+        log.info(
             "name: %s, trigger: %s, next run: %s, handler: %s"
             % (job.name, job.trigger, job.next_run_time, job.func)
         )
@@ -1834,8 +1839,8 @@ def clearCache():
 
 
 def refreshCache():
-    print("Cache currently contains", len(cache["scenes"]))
-    print("refreshing cache")
+    log.info("Cache currently contains %s"  % (len(cache["scenes"]),))
+    log.info("refreshing cache")
     reload_filter_cache()
     cache["refresh_time"] = datetime.now()
 
@@ -1843,7 +1848,7 @@ def refreshCache():
     if len(cache["scenes"]) == 0:
         scenes = []
         per_page = 100
-        print("Fetching " + str(per_page) + " scenes")
+        log.info("Fetching scenes %s" % (per_page,))
         res = get_scenes(
             scene_filter={
                 "tags": {
@@ -1860,7 +1865,7 @@ def refreshCache():
         scenes = res["findScenes"]["scenes"]
         if res["findScenes"]["count"] > per_page:
             for x in range(2, (res["findScenes"]["count"] // per_page + 2)):
-                print("Fetching " + str(x * per_page) + " scenes")
+                log.info("Fetching scenes %s/%s"  % (x * per_page,res["findScenes"]["count"],))
                 res = get_scenes(
                     scene_filter={
                         "tags": {
@@ -1910,10 +1915,10 @@ def refreshCache():
                 updated_at > cache["last_updated"]
                 or len(cache["scenes"]) != res["findScenes"]["count"]
             ):
-                print("Cache needs updating")
+                log.debug("Cache needs updating")
                 scenes = []
                 per_page = 100
-                print("Fetching " + str(per_page) + " scenes")
+                log.info("Fetching " + str(per_page) + " scenes")
                 res = get_scenes(
                     scene_filter={
                         "tags": {
@@ -1930,7 +1935,7 @@ def refreshCache():
                 scenes = res["findScenes"]["scenes"]
                 if res["findScenes"]["count"] > per_page:
                     for x in range(2, (res["findScenes"]["count"] // per_page + 2)):
-                        print("Fetching " + str(x * per_page) + " scenes")
+                        log.info("Fetching " + str(x * per_page) + " scenes")
                         res = get_scenes(
                             scene_filter={
                                 "tags": {
@@ -1951,18 +1956,14 @@ def refreshCache():
                     cache["scenes"][int(s["id"])] = s
 
             else:
-                print("Cache up to date")
+                log.info("Cache up to date")
 
-    print(
-        "Cache currently contains ",
-        len(cache["scenes"]),
-        " scenes, checking image cache",
-    )
+    log.info("Cache currently contains % scenes, checking image cache" % (len(cache["scenes"]),))
 
     modified = False
     for index, s in cache["scenes"].items():
         if not os.path.exists(os.path.join(image_dir, s["id"])):
-            print("fetching image: " + s["id"])
+            log.info("fetching image: " + s["id"])
             screenshot = s["paths"]["screenshot"]
             r = request_s.get(
                 screenshot, headers=headers, verify=app.config["VERIFY_FLAG"]
@@ -1989,7 +1990,7 @@ def refreshCache():
             if s["id"] in cache["image_cache"]:
                 if s["updated_at"] != cache["image_cache"][s["id"]]["updated"]:
                     screenshot = s["paths"]["screenshot"]
-                    print(screenshot)
+                    log.debug(screenshot)
 
                     r = request_s.get(
                         screenshot, headers=headers, verify=app.config["VERIFY_FLAG"]
@@ -2042,7 +2043,7 @@ def refreshCache():
                     f.write(r.content)
                     f.close()
                     modified = True
-                    print("Replacing image: " + s["paths"]["screenshot"])
+                    log.info("Replacing image: " + s["paths"]["screenshot"])
                     cache["scenes"][int(s["id"])]["image"] = "/image/" + str(s["id"])
                     cache["image_cache"][int(s["id"])] = {
                         "file": os.path.join(image_dir, s["id"]),
@@ -2060,7 +2061,7 @@ def refreshCache():
                                 s["id"]
                             )
                     except UnidentifiedImageError:
-                        print("unknown image format")
+                        log.error("unknown image format")
 
     reload_filter_studios()
     reload_filter_performer()
@@ -2068,17 +2069,17 @@ def refreshCache():
 
     if modified:
         save_index()
-    print("Finished Cache Refresh")
+    log.info("Finished Cache Refresh")
 
 
 def setup_image_cache():
     if not os.path.exists(image_dir):
         os.mkdir(image_dir)
     if os.path.exists(os.path.join(image_dir, "index.json")):
-        print("loading cache index")
+        log.info("loading cache index")
         with open(os.path.join(image_dir, "index.json")) as f:
             cache["image_cache"] = json.load(f)
-            print("loaded cache index" + str(len(cache["image_cache"])))
+            log.info("loaded cache index" + str(len(cache["image_cache"])))
     if not os.path.exists(hsp_dir):
         os.mkdir(hsp_dir)
 
@@ -2086,12 +2087,12 @@ def setup_image_cache():
 def save_index():
     with open(os.path.join(image_dir, "index.json"), "w") as f:
         json.dump(cache["image_cache"], f)
-        print("saved cache index")
+        log.info("saved cache index")
 
 
 def saveConfig():
-    print("Saving config: " + str(config))
-    print(config)
+    log.info("Saving config: " + str(config))
+    log.debug(config)
     if "config_studio" in config:
         input = {
             "id": config["config_studio"],
@@ -2188,7 +2189,7 @@ def hsps():
                     )
         else:
             scene = cache["scenes"][int(request.args.get("submit"))]
-            print(scene.keys())
+            log.debug(scene.keys())
             new_scene = {
                 "title": scene["title"],
                 "details": scene["details"],
@@ -2247,7 +2248,7 @@ def hsp_fetch():
             for r in s["hsp"]:
                 if r["id"] == request.args.get("save"):
                     file = os.path.join(hsp_dir, s["local_id"] + ".hsp")
-                    print("Saving hsp to: %s", (file,))
+                    log.info("Saving hsp to: %s", (file,))
                     with open(file, "wb") as f:
                         f.write(base64.b64decode(r["hsp"]))
                         f.close()
@@ -2340,11 +2341,11 @@ def heresphere_auth():
     data = {}
     if 'ApiKey' in headers:
 
-#        print("here: "+str(request.json)+request.json['username']+"-"+request.json['username'])
+#        log.debug("here: "+str(request.json)+request.json['username']+"-"+request.json['username'])
         if request.json['username'] == auth['username'] and bcrypt.check_password_hash(auth['password'], request.json['password']):
             data["access"] = 1
             data["auth-token"] = headers["ApiKey"]
-            print("Successful login")
+            log.info("Successful login")
         else:
             return jsonify({"access": "-1", "library": []}), {
                 "HereSphere-JSON-Version": 1
@@ -2357,10 +2358,10 @@ def heresphere_scene(scene_id):
     scene = {}
     if 'ApiKey' in headers:
 
-        #print("scene: "+str(request.json)+request.json['username']+"-"+request.json['username'])
+        #log.debug("scene: "+str(request.json)+request.json['username']+"-"+request.json['username'])
         if request.is_json and request.json['username']==auth['username'] and bcrypt.check_password_hash(auth['password'], request.json['password']):
             scene["access"] = 1
-            print("Successful login")
+            log.info("Successful login")
         elif "Auth-Token" in request.headers:
             if request.headers["Auth-Token"] == headers["ApiKey"]:
                 scene["access"] = 1
@@ -2377,13 +2378,13 @@ def heresphere_scene(scene_id):
     if request.method == "POST" and "rating" in request.json:
         # Save Ratings
 
-        print("Saving rating " + str(request.json['rating']))
+        log.info("Saving rating " + str(request.json['rating']))
         s["rating100"]=int(request.json['rating'])*20
-        print("updating scene: "+str(s))
+        log.info("updating scene: "+str(s))
         updateScene(s)
     if request.method == "POST" and "tags" in request.json:
         # Save Ratings
-        print("Saving tags:" + str(request.json["tags"]))
+        log.info("Saving tags:" + str(request.json["tags"]))
         for t in request.json["tags"]:
             if t["name"] in [""]:
                 # Skip empty tags
@@ -2393,7 +2394,7 @@ def heresphere_scene(scene_id):
                 previous_marker = None
                 for m in s["scene_markers"]:
                     # Check for a marker with either the same start or end time as on the scene
-                    print("T: " + str(t) + " M: " + str(m))
+                    log.debug("T: " + str(t) + " M: " + str(m))
                     if (
                         t["start"] == m["seconds"] * 1000
                         and t["start"] - 5000 < m["seconds"] * 1000
@@ -2415,7 +2416,7 @@ def heresphere_scene(scene_id):
                     ):
                         found_marker = previous_marker
                 if found_marker is not None:
-                    print(found_marker)
+                    log.debug(found_marker)
                     if "id" in found_marker:
                         data = {
                             "id": found_marker["id"],
@@ -2424,7 +2425,7 @@ def heresphere_scene(scene_id):
                             "scene_id": s["id"],
                             "primary_tag_id": found_marker["primary_tag"]["id"],
                         }
-                        print(
+                        log.debug(
                             "Updating existing marker "
                             + str(data)
                             + str(previous_marker)
@@ -2440,26 +2441,26 @@ def heresphere_scene(scene_id):
                         for tc in tags_cache.keys():
                             if t["name"][4:].lower() == tc.lower():
                                 tag = tags_cache[tc]
-                                print("tag:" + tc)
+                                log.debug("tag:" + tc)
                                 break
                             if t["name"][4:].lower() in [
                                 x.lower() for x in tags_cache[tc]["aliases"]
                             ]:
                                 tag = tags_cache[tc]
-                                print("tag:" + tc)
+                                log.debug("tag:" + tc)
                                 break
                     #                        tag=tags_cache[t['name'][4:]]
                     else:
                         for tc in tags_cache.keys():
                             if t["name"].lower() == tc.lower():
                                 tag = tags_cache[tc]
-                                print("tag:" + tc)
+                                log.debug("tag:" + tc)
                                 break
                             if t["name"].lower() in [
                                 x.lower() for x in tags_cache[tc]["aliases"]
                             ]:
                                 tag = tags_cache[tc]
-                                print("tag:" + tc)
+                                log.debug("tag:" + tc)
                                 break
                     if tag is None:
                         tag = createTagWithName(t["name"])
@@ -2471,7 +2472,7 @@ def heresphere_scene(scene_id):
                         "scene_id": s["id"],
                         "primary_tag_id": tag["id"],
                     }
-                    print("createing new marker: " + str(data))
+                    log.info("createing new marker: " + str(data))
                     new_marker = createMarker(data)
                     #                    new_marker=new_marker
                     s["scene_markers"].append(new_marker)
@@ -2487,7 +2488,7 @@ def heresphere_scene(scene_id):
 
     if request.method == "POST" and "hsp" in request.json:
         file = os.path.join(hsp_dir, str(scene_id) + ".hsp")
-        print("Saving hsp to :" + file + ", " + str(request.json["hsp"]))
+        log.info("Saving hsp to :" + file + ", " + str(request.json["hsp"]))
         with open(file, "wb") as f:
             f.write(base64.b64decode(request.json["hsp"]))
             f.close()
@@ -2598,7 +2599,7 @@ def heresphere_scene(scene_id):
                     "track": 0,
                 }
             )
-            print("marker:" + str(m))
+            log.debug("marker:" + str(m))
     for t in s["tags"]:
         tags.append({"name": "Category:" + t["name"]})
 
@@ -2636,7 +2637,7 @@ def heresphere_scene(scene_id):
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        print(request.form["username"] + auth["username"])
+        log.debug(request.form["username"] + auth["username"])
         if request.form["username"] == auth["username"]:
             if bcrypt.check_password_hash(auth["password"], request.form["password"]):
                 session["username"] = request.form["username"]
@@ -2660,7 +2661,7 @@ def config_page ():
 
 @app.route("/eventServer", methods=["GET", "POST"])
 def eventServer():
-    print(request.json)
+    log.debug(request.json)
     id = request.json["id"].split("/")[-1]
     if request.json["event"] == 1:
         # first play event update the play cound
@@ -2669,7 +2670,7 @@ def eventServer():
             recent_scenes[id] = datetime.now()
     elif request.json["event"] == 3:
         recent_scenes.pop(id, None)
-        print("scene no longer playing")
+        log.debug("scene no longer playing")
 
     return ""
 
