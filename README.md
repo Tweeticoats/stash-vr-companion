@@ -10,20 +10,20 @@ This web application creates a set of json files allowing you to stream vr video
 
 Stash VR Companion uses tags to configure both what is included in the index and also the scene VR format and projection.
 
-1. All scenes *must be tagged* with **export_deovr** to be visible at all.
-2. 2D scenes: the **FLAT** tag explicitly marks 2D. *Scenes are assumed 2D by default*, but explicitly tagging `FLAT` can help when searching and organizing witin Stash.
+1. All scenes *must be tagged* with `export_deovr` to be visible at all.
+2. 2D scenes: the `FLAT` tag explicitly marks 2D. *Scenes are assumed 2D by default*, but explicitly tagging `FLAT` can help when searching and organizing witin Stash.
 3. 3D scenes should have two tags each:
     1. *Stereo Mode*, which must be either:
-        * **SBS** - Side by Side with the left eye taking up the left half of the video. This is the default for 3D videos; but setting explicitly can help you to search and filter in Stash.
-        * **TB** - Top and bottom, with the left eye taking up the top half of the video.
+        * `SBS` - Side by Side with the left eye taking up the left half of the video. This is the default for 3D videos; but setting explicitly can help you to search and filter in Stash.
+        * `TB` - Top and bottom, with the left eye taking up the top half of the video.
     3. *Screen Type* (or "projection"), which must be either:
-        * **DOME** - 3D 180° projection, this is what most VR videos use.
-        * **FISHEYE** - Fish Eye lense projection
-        * **190°** or **RF52** - 3d 190° projection used by SLR
-        * **200°** or **MKX200** - 3D 200° projection used by SLR
-        * **MKX220** - 3D 220° projection used by SLR
-        * **SPHERE** - 3D 360° projection used by some earlier videos
-        * **MONO** - Mono video with the same image for both eyes, commonly used with mono 360 videos
+        * `DOME` - 3D 180° projection, this is what most VR videos use.
+        * `FISHEYE` - Fish Eye lense projection
+        * `190°` or `RF52` - 3d 190° projection used by SLR
+        * `200°` or `MKX200` - 3D 200° projection used by SLR
+        * `MKX220` - 3D 220° projection used by SLR
+        * `SPHERE` - 3D 360° projection used by some earlier videos
+        * `MONO` - Mono video with the same image for both eyes, commonly used with mono 360 videos
 
 ## Additional filter categories
 The default categories are Recent, 2D and VR. You can pin a studio and performers by adding a string to the studio description and a tag to the performer.
