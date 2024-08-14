@@ -1309,7 +1309,7 @@ def getFilter(filter_id):
 @app.route("/deovr", methods=["GET", "POST"])
 def deovr():
     data = {}
-    if "ApiKey" in headers:
+    if not isLoggedIn():
         if request.form:
             if request.form["login"] == auth["username"] and bcrypt.check_password_hash(
                 auth["password"], request.form["password"]
@@ -1370,6 +1370,12 @@ def deovr():
 
 @app.route("/deovr/<int:scene_id>", methods=["GET", "POST"])
 def show_post(scene_id):
+    if not isLoggedIn():
+        data = {}
+        data["authorized"] = "-1"
+        data["scenes"] = [{"name": "Login required", "list": []}]
+        return jsonify(data)
+    
     s = cache["scenes"][scene_id]
 
     scene = {}
