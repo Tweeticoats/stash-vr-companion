@@ -48,6 +48,7 @@ The folder /hsp is used to store hsp files, these are configuration files used b
 | `-e CACHE_DIR=/cache/`                        | The directory used to cache images, defaults to /cache/ in the docker container and ./cache/ if not specified                                                                                       |
 | `-e HSP_DIR=/hsp/`                            | The directory used to store hsp files saved from within heresphere, defaults to ./hsp/ if not specified                                                                                             |
 | `-e DISABLE_CERT_VERIFICATION=True`           | Disable certificate verification when connecting to stash, for cases where https is used                                                                                                            |
+| `-e REFRESH_MINUTES=5`                        | Refresh interval of VR scene information cache, in minutes. Defaults to 5 minutes if not specified.                                                                                                 |
 
 ```
 docker stop stash-vr-companion
