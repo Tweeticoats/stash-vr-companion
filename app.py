@@ -2679,9 +2679,9 @@ setup()
 setup_image_cache()
 refreshCache()
 
-
+refresh_minutes = int(os.getenv("REFRESH_MINUTES", "5"))
 sched = BackgroundScheduler(daemon=True)
-sched.add_job(refreshCache, "interval", minutes=5)
+sched.add_job(refreshCache, "interval", minutes=refresh_minutes)
 sched.start()
 
 
